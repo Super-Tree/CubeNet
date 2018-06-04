@@ -78,8 +78,8 @@ class CubicNet_Train(object):
                 # self.cls_loss = tf.reduce_sum(self.cls_loss)
                 ####
 
-                # alpha = [0.75,0.25]  # 0.25 for label=1
-                gamma = 3
+                alpha = [0.2,0.8]  # 0.25 for label=1
+                gamma = 2
                 rpn_cls_probability = tf.nn.softmax(rpn_cls_score)
                 cubic_cls_probability = tf.nn.softmax(cubic_cls_score)
 
@@ -88,9 +88,7 @@ class CubicNet_Train(object):
                     tf.one_hot(rpn_label, depth=2) * ((1 - rpn_cls_probability) ** gamma) * tf.log(
                         [cfg.EPS, cfg.EPS] + rpn_cls_probability), axis=1))
 
-                cubic_cross_entropy = tf.reduce_mean(-tf.reduce_sum(
-                    tf.one_hot(cubic_cls_labels, depth=2) * ((1 - cubic_cls_probability) ** gamma) * tf.log(
-                        [cfg.EPS, cfg.EPS] + cubic_cls_probability), axis=1))
+                cubic_cross_entropy = tf.reduce_mean(-tf.reduce_sum(tf.one_hot(cubic_cls_labels, depth=2) * ((1 - cubic_cls_probability) ** gamma) * tf.log([cfg.EPS, cfg.EPS] + cubic_cls_probability)*alpha, axis=1))
 
             # bounding box regression L1 loss
             rpn_bbox_pred = self.net.get_output('rpn_bbox_pred')
@@ -107,7 +105,7 @@ class CubicNet_Train(object):
         with tf.name_scope('train_op'):
             global_step = tf.Variable(1, trainable=False, name='Global_Step')
             lr = tf.train.exponential_decay(cfg.TRAIN.LEARNING_RATE, global_step, 10000, 0.92, name='decay-Lr')
-            train_op = tf.train.AdamOptimizer(lr).minimize(loss, global_step=global_step)
+            train_op = tf.train.MomentumOptimizer(lr,momentum=0.9).minimize(loss, global_step=global_step)
 
         with tf.name_scope('train_cubic'):
             tf.summary.scalar('total_loss', loss)
@@ -144,6 +142,7 @@ class CubicNet_Train(object):
             cubic_recall_smy_op = tf.summary.scalar('cubic_recall', epoch_cubic_recall)
             epoch_cubic_precise = tf.placeholder(dtype=tf.float32)
             cubic_prec_smy_op = tf.summary.scalar('cubic_precise', epoch_cubic_precise)
+
             valid_summary = tf.summary.merge([rpn_recall_smy_op, cubic_recall_smy_op, cubic_prec_smy_op])
 
         sess.run(tf.global_variables_initializer())
@@ -156,7 +155,7 @@ class CubicNet_Train(object):
         timer = Timer()
         rpn_rois = self.net.get_output('rpn_rois')
         cubic_grid = self.net.get_output('cubic_grid')
-        cubic_cnn= self.net.get_output('cubic_cnn')
+        cubic_cnn = self.net.get_output('cubic_cnn')
 
         if DEBUG:
             vispy_init()  # TODO: Essential step(before sess.run) for using vispy beacuse of the bug of opengl or tensorflow
@@ -200,7 +199,7 @@ class CubicNet_Train(object):
                           (iter,self.args.epoch_iters * self.epoch, blobs['serial_num'],timer.average_time,loss_,recall_RPN / cfg.TRAIN.ITER_DISPLAY,cubic_car_cls_prec,cubic_car_cls_recall)
                     recall_RPN = 0.
                     print 'divine: ', str(cubic_result).translate(None,'\n')
-                    print 'labels: ', str(cubic_cls_labels_).translate(None,'\n'),'Variable length:', len(tf.all_variables()),'\n'
+                    print 'labels: ', str(cubic_cls_labels_).translate(None,'\n'),'\n'
 
                 if iter % 20 == 0 and cfg.TRAIN.TENSORBOARD:
                     train_writer.add_summary(merged_, iter)
