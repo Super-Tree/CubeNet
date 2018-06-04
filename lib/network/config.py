@@ -26,9 +26,9 @@ else:
 
 __C.OUTPUT_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'output'))
 __C.LOG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'log'))
-__C.LOCAL_LOG_DIR = osp.abspath(osp.join(__C.ROOT_DIROT_DIR, 'local_log'))
+__C.LOCAL_LOG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'local_log'))
 __C.TEST_RESULT = osp.abspath(osp.join(__C.ROOT_DIR, 'test_result'))
-__C.EPS = 1e-15#1e-3
+__C.EPS = 1e-15  # 1e-3
 __C.ANCHOR = [4.000,4.000,2.000]  # car size # todo: car height should be carefully decided!
 __C.CUBIC_RES = [0.136,0.136,0.14] # 30x30x15  # car size [0.2858,0.2858,0.1429]:14x14x14
 __C.CUBIC_SIZE=[int(np.ceil(np.round(__C.ANCHOR[i] / __C.CUBIC_RES[i], 3))) for i in range(3)] # Be careful about python number decimal
@@ -62,10 +62,10 @@ __C.TRAIN.WEIGHT_DECAY = 0.0005 # for l2 regularizer in network.py btw,useless
 __C.TRAIN.MOVING_AVERAGE_DECAY = 0.9999
 __C.TRAIN.ITER_DISPLAY = 10
 __C.TRAIN.FOCAL_LOSS = True
-__C.TRAIN.TENSORBOARD = False # TODO:claude:to re-write
-__C.TRAIN.EPOCH_MODEL_SAVE = False
+__C.TRAIN.TENSORBOARD = True
+__C.TRAIN.EPOCH_MODEL_SAVE = True
 __C.TRAIN.DEBUG_TIMELINE = True  # Enable timeline generation
-__C.TRAIN.USE_VALID = False  # TODO:claude:to re-write
+__C.TRAIN.USE_VALID = True
 __C.TRAIN.VISUAL_VALID = True
 __C.TRAIN.USE_AUGMENT_IN_CUBIC_GEN = True
 # Total number of examples

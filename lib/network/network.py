@@ -77,7 +77,7 @@ class Network(object):
                                 print "assign pretrain model " + subkey + " to " + key
                             except ValueError:
                                 print "ignore " + key
-        except RuntimeError:
+        except :
             from tensorflow.python import pywrap_tensorflow
             reader = pywrap_tensorflow.NewCheckpointReader(data_path)
             var_to_shape_map = reader.get_variable_to_shape_map()
