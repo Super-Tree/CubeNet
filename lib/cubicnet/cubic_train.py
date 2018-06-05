@@ -12,6 +12,7 @@ from tools.data_visualize import pcd_vispy, vispy_init, BoxAry_Theta
 
 DEBUG = False
 DEBUG_MEM = True
+
 class CubicNet_Train(object):
     def __init__(self, network, data_set, args):
         self.saver = tf.train.Saver(max_to_keep=100)
@@ -78,7 +79,7 @@ class CubicNet_Train(object):
                 # self.cls_loss = tf.reduce_sum(self.cls_loss)
                 ####
 
-                alpha = [0.2,0.8]  # 0.25 for label=1
+                alpha = [1.0, 1.0]  # 0.25 for label=1
                 gamma = 2
                 rpn_cls_probability = tf.nn.softmax(rpn_cls_score)
                 cubic_cls_probability = tf.nn.softmax(cubic_cls_score)
@@ -104,7 +105,7 @@ class CubicNet_Train(object):
 
         with tf.name_scope('train_op'):
             global_step = tf.Variable(1, trainable=False, name='Global_Step')
-            lr = tf.train.exponential_decay(cfg.TRAIN.LEARNING_RATE, global_step, 10000, 0.92, name='decay-Lr')
+            lr = tf.train.exponential_decay(cfg.TRAIN.LEARNING_RATE, global_step, 10000, 0.90, name='decay-Lr')
             train_op = tf.train.MomentumOptimizer(lr, momentum=0.9).minimize(loss, global_step=global_step)
 
         with tf.name_scope('train_cubic'):
@@ -168,6 +169,11 @@ class CubicNet_Train(object):
             import os
             import matplotlib.pyplot as plt
             res_stack = []
+            res = os.popen('ps aux|grep python2.7').read().split('hexindo+')
+            for i in range(len(res)):
+                if '/home/hexindong/Videos/cubic-local/experiment/main.py' in res[i]:
+                    pid = res[i].split()[0]
+                    break
 
         training_series = range(self.epoch)  # self.epoch
         sess.graph.finalize()  # in case of modifying graph for memory leak
@@ -196,39 +202,33 @@ class CubicNet_Train(object):
                 cubic_car_cls_prec = one_hist[1, 1] / (one_hist[1, 1] + one_hist[0, 1]+1e-5)
                 cubic_car_cls_recall = one_hist[1, 1] / (one_hist[1, 1] + one_hist[1, 0]+1e-5)
 
-                print('Step: ',iter)
-                if iter % 50 == 0 and DEBUG_MEM:
-                    res = os.popen('ps aux|grep python2.7').read().split('hexindo+')
-                    for i in range(len(res)):
-                        if '/home/hexindong/Videos/cubic-local/experiment/main.py' in res[i]:
-                            pid = res[i].split()[0]
-                            break
+                # print('Step: ',iter)
+                if (iter % 100 == 0 and DEBUG_MEM) or iter == 1:
                     with open('/proc/' + pid + '/statm', 'r') as f:
                         occupy_mb = int(f.readline().split()[1]) / 256.0
-                        res_stack.append(occupy_mb)
+                        # res_stack.append(occupy_mb)
 
-                    if iter % 100 == 0:
-                        plt.ylabel('Memory Occupy :MB')
-                        plt.plot(res_stack)
-                        plt.show()
+                    # if iter % 300 == 0:
+                    #     plt.ylabel('Memory Occupy :MB')
+                    #     plt.plot(res_stack)
+                    #     plt.show()
 
                 if iter % cfg.TRAIN.ITER_DISPLAY == 0:
                     print 'Iter: %d/%d, Serial_num: %s, speed: %.3fs/iter, loss: %.3f, rpn_recall: %.3f, cubic classify precise: %.3f,recall: %.3f' % \
                           (iter,self.args.epoch_iters * self.epoch, blobs['serial_num'],timer.average_time,loss_,recall_RPN / cfg.TRAIN.ITER_DISPLAY,cubic_car_cls_prec,cubic_car_cls_recall)
                     recall_RPN = 0.
                     print 'divine: ', str(cubic_result).translate(None,'\n')
-                    print 'labels: ', str(cubic_cls_labels_).translate(None,'\n'),'\n'
-                if iter % 20 == 0 and cfg.TRAIN.TENSORBOARD:
+                    print 'labels: ', str(cubic_cls_labels_).translate(None,'\n'), 'MEM: ', int(occupy_mb), '\n'
+                if iter % 40 == 0 and cfg.TRAIN.TENSORBOARD:
                     train_writer.add_summary(merged_, iter)
                     pass
-                if (iter % 4000 == 0 and cfg.TRAIN.DEBUG_TIMELINE):
-
+                if (iter % 4000 == 0 and cfg.TRAIN.DEBUG_TIMELINE) or iter == 200:
                     run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                     run_metadata = tf.RunMetadata()
-                    _ = sess.run([cubic_cls_score], feed_dict=feed_dict,options=run_options, run_metadata=run_metadata)
-                    #chrome://tracing
+                    _ = sess.run([cubic_cls_score], feed_dict=feed_dict, options=run_options, run_metadata=run_metadata)
+                    # chrome://tracing
                     trace = timeline.Timeline(step_stats=run_metadata.step_stats)
-                    trace_file = open(cfg.LOG_DIR+'/' +'training-step-'+ str(iter).zfill(7) + '.ctf.json', 'w')
+                    trace_file = open(cfg.LOG_DIR+'/' + 'training-step-' + str(iter).zfill(7) + '.ctf.json', 'w')
                     trace_file.write(trace.generate_chrome_trace_format(show_memory=False))
                     trace_file.close()
                 if DEBUG:
