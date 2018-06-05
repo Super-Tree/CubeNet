@@ -23,5 +23,6 @@ def gpu_nms(np.ndarray[np.float32_t, ndim=2] dets, np.float thresh,
     cdef np.ndarray[np.int_t, ndim=1] order = scores.argsort()[::-1]
     cdef np.ndarray[np.float32_t, ndim=2] sorted_dets = dets[order, :]
     _nms(&keep[0], &num_out, &sorted_dets[0, 0], boxes_num, boxes_dim, thresh, device_id)
+
     keep = keep[:num_out]
     return list(order[keep])
