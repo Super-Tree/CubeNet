@@ -56,7 +56,7 @@ else:
 __C.TRAIN = edict()
 
 __C.TRAIN.SNAPSHOT_ITERS = 8000
-__C.TRAIN.LEARNING_RATE = 1e-4
+__C.TRAIN.LEARNING_RATE = 1e-3
 __C.TRAIN.BATCH_SIZE = 1  # only one image
 __C.TRAIN.WEIGHT_DECAY = 0.0005 # for l2 regularizer in network.py btw,useless
 __C.TRAIN.MOVING_AVERAGE_DECAY = 0.9999
