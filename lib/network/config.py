@@ -7,7 +7,7 @@ import string
 import os
 import numpy as np
 import socket
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'  # or any {'0':log, '1':info, '2':warning ,'3':Error}
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # or any {'0':log, '1':info, '2':warning ,'3':Error} #TODO : check
 __C = edict()
 
 cfg = __C
@@ -31,7 +31,7 @@ __C.TEST_RESULT = osp.abspath(osp.join(__C.ROOT_DIR, 'test_result'))
 __C.EPS = 1e-15  # 1e-3
 __C.ANCHOR = [4.000,4.000,2.000]  # car size # todo: car height should be carefully decided!
 __C.CUBIC_RES = [0.136,0.136,0.14] # 30x30x15  # car size [0.2858,0.2858,0.1429]:14x14x14
-__C.CUBIC_SIZE=[int(np.ceil(np.round(__C.ANCHOR[i] / __C.CUBIC_RES[i], 3))) for i in range(3)] # Be careful about python number decimal
+__C.CUBIC_SIZE = [int(np.ceil(np.round(__C.ANCHOR[i] / __C.CUBIC_RES[i], 3))) for i in range(3)] # Be careful about python number decimal
 __C.ANCHOR_CNT=1
 __C.RPN_POINTS_REMAIN = 600
 __C.VOXEL_POINT_COUNT = 20

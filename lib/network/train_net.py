@@ -18,6 +18,8 @@ class train_net(Network):
         self.gt_boxes_corners = tf.placeholder(tf.float32, shape=[None, 25])
         self.calib = tf.placeholder(tf.float32, shape=[None, 12])
         self.keep_prob = tf.placeholder(tf.float32)
+        self.target_data = 0
+        self.label_data = 0
         self.layers = dict({'lidar3d_data': self.lidar3d_data,
                             'lidar_bv_data': self.lidar_bv_data,
                             'calib': self.calib,
@@ -75,6 +77,8 @@ class train_net(Network):
          .cubic_grid(method=args.method, name='cubic_grid')
          .cubic_cnn(name='cubic_cnn')
          )
+        self.target_data = self.layers['cubic_grid'][0]
+        self.label_data = self.layers['rpn_rois'][0][:, -2]
 
         # (self.feed('lidar3d_data', 'rpn_rois')
         #  .vfe_feature_Gen(method=args.method, name='cubic_grid')
