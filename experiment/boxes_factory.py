@@ -75,7 +75,7 @@ def box_view(path, idx):
     pcd_vispy(coordinate,boxes=boxary2dic(np.array([0,0,0,cfg.CUBIC_SIZE[0],cfg.CUBIC_SIZE[1],cfg.CUBIC_SIZE[2],0,0])))
 
 def box_np_view(data1,data2 = None):
-
+    stack = []
     data1 = data1.reshape([30, 30, 15, 1])
     coordinate1 = np.array(np.where(data1[:, :, :, 0] == 1)).transpose(1, 0)
     coordinate1 -= [cfg.CUBIC_SIZE[0]/2,cfg.CUBIC_SIZE[1]/2,cfg.CUBIC_SIZE[2]/2]
@@ -84,19 +84,21 @@ def box_np_view(data1,data2 = None):
         coordinate2 = np.array(np.where(data2[:, :, :, 0] == 1)).transpose(1, 0)
         coordinate2 -= [cfg.CUBIC_SIZE[0]/2,cfg.CUBIC_SIZE[1]/2,cfg.CUBIC_SIZE[2]/2]
 
-        pcd_vispy(coordinate2,
-                  boxes=boxary2dic(np.array([0,0,0,cfg.CUBIC_SIZE[0],cfg.CUBIC_SIZE[1],cfg.CUBIC_SIZE[2],0,0])),
-                  point_size=0.1,
-                  visible=False,
-                  multi_vis=True)
+        stack.append(pcd_vispy(coordinate2,name='WINDOW:2',
+                     boxes=boxary2dic(np.array([0,0,0,cfg.CUBIC_SIZE[0],cfg.CUBIC_SIZE[1],cfg.CUBIC_SIZE[2],0,0])),
+                     point_size=0.1,
+                     visible=False,
+                     multi_vis=True))
 
-    pcd_vispy(coordinate1,boxes=boxary2dic(np.array([0,0,0,cfg.CUBIC_SIZE[0],cfg.CUBIC_SIZE[1],cfg.CUBIC_SIZE[2],0,0])),
-              point_size=0.1,
-              visible=False,
-              multi_vis=True)
-
+    stack.append(pcd_vispy(coordinate1,name='WINDOW:1',
+                           boxes=boxary2dic(np.array([0,0,0,cfg.CUBIC_SIZE[0],cfg.CUBIC_SIZE[1],cfg.CUBIC_SIZE[2],0,0])),
+                           point_size=0.1,
+                           visible=False,
+                           multi_vis=True))
 
     pcd_show_now()
+
+
 if __name__ == '__main__':
     # network_training()
     idx = 0

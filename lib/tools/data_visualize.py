@@ -240,7 +240,7 @@ class pcd_vispy_client(object):# TODO: qt-client TO BE RE-WRITE
                 vispy.app.run()
                 a =[]
 
-def pcd_vispy(scans=None,img=None, boxes=None, name=None, index=0,vis_size=(800, 600),save_img=False,visible=True,no_gt=False,multi_vis=False,point_size = 0.02):
+def pcd_vispy(scans=None,img=None, boxes=None, name=None, index=0,vis_size=(800, 600),save_img=False,visible=True,multi_vis=False,point_size=0.02):
     if multi_vis:
         canvas = vispy.scene.SceneCanvas(title=name, keys='interactive', size=vis_size,show=True)
     else:
