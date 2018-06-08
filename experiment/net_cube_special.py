@@ -12,44 +12,22 @@ from tools.data_visualize import vispy_init
 from tools.printer import red,blue,yellow,cyan,green,purple,darkyellow
 from easydict import EasyDict as edict
 from boxes_factory import box_np_view
-
 import multiprocessing
 import cv2
-DEBUG = True
+from contextlib import contextmanager
+from tools.utils import fast_hist
 
-def bounding_filter(points, box):
-    x_min = box[0] - float(cfg.ANCHOR[0]) / 2
-    x_max = box[0] + float(cfg.ANCHOR[0]) / 2
-    y_min = box[1] - float(cfg.ANCHOR[1]) / 2
-    y_max = box[1] + float(cfg.ANCHOR[1]) / 2
-    z_min = box[2] - float(cfg.ANCHOR[2]) / 2
-    z_max = box[2] + float(cfg.ANCHOR[2]) / 2
-
-    x_points = points[:, 0]
-    y_points = points[:, 1]
-    z_points = points[:, 2]
-    f_filt = np.logical_and((x_points > x_min), (x_points < x_max))
-    s_filt = np.logical_and((y_points > y_min), (y_points < y_max))
-    z_filt = np.logical_and((z_points > z_min), (z_points < z_max))
-    fliter = np.logical_and(np.logical_and(f_filt, s_filt), z_filt)
-    indice = np.flatnonzero(fliter)
-    filter_points = points[indice]
-
-    return filter_points, np.array([x_min, y_min, z_min, 0.], dtype=np.float32), np.array([box[0], box[1], box[2], 0.],
-                                                                                          dtype=np.float32)
+DEBUG = False
 
 
-def rot_sca_pc(points, rotation, scalar, translation):
-    # points: numpy array;translation: moving scalar which should be small
-    R = np.array([[np.cos(rotation), -np.sin(rotation), 0.],
-                  [np.sin(rotation), np.cos(rotation), 0.],
-                  [0, 0, 1]], dtype=np.float32)
-    assert translation.shape == (3, 1), 'File rpn_3dcnn Function rot_sca_pc :T is  incompatible with transform'
-    # T = np.random.randn(3, 1) * translation
-    points_rot = np.matmul(R, points[:, 0:3].transpose()) + translation
-    points_rot_sca = points_rot * scalar
-    return np.hstack((points_rot_sca.transpose(), points[:, 3:]))
-
+@contextmanager
+def printoptions(*args, **kwargs):
+    original_options = np.get_printoptions()
+    np.set_printoptions(*args, **kwargs)
+    try:
+        yield
+    finally:
+        np.set_printoptions(**original_options)
 
 class data_load(object):
     """
@@ -60,10 +38,10 @@ class data_load(object):
     def __init__(self, path, arg_,one_piece=False):
         self.path = path
         self.arg = arg_
-        self.train_positive_cube_cnt = 30924
-        self.train_negative_cube_cnt = 239576
-        self.valid_positive_cube_cnt = 5940
-        self.valid_negative_cube_cnt = 46260
+        self.train_positive_cube_cnt = 0
+        self.train_negative_cube_cnt = 0
+        self.valid_positive_cube_cnt = 0
+        self.valid_negative_cube_cnt = 0
 
         self.TrainSet_POS = []
         self.TrainSet_NEG = []
@@ -127,12 +105,18 @@ class data_load(object):
         if os.path.exists(TrainSet_POS_filter_file_name) and os.path.exists(ValidSet_POS_filter_file_name)\
                 and os.path.exists(TrainSet_NEG_filter_file_name)and os.path.exists(ValidSet_NEG_filter_file_name)\
                 and os.path.exists(info_file_name):
-            print(darkyellow('Eating filtered data(Points more than {}) from npy zip file in folder:data_in_one_piece ...'
+            print(darkyellow('Eating filtered data(Points more than {}) from npy zip file in folder:filter_data_in_one_piece ...'
                   .format(np.load(info_file_name))))
             self.TrainSet_POS = np.load(TrainSet_POS_filter_file_name)
             self.TrainSet_NEG = np.load(TrainSet_NEG_filter_file_name)
             self.ValidSet_POS = np.load(ValidSet_POS_filter_file_name)
             self.ValidSet_NEG = np.load(ValidSet_NEG_filter_file_name)
+
+            self.train_positive_cube_cnt = self.TrainSet_POS.shape[0]
+            self.train_negative_cube_cnt = self.TrainSet_NEG.shape[0]
+            self.valid_positive_cube_cnt = self.ValidSet_POS.shape[0]
+            self.valid_negative_cube_cnt = self.ValidSet_NEG.shape[0]
+
             print(purple('Emmm,there are TP:{} TN:{} VP:{} VN:{} in my stomach.'.format(
                 self.TrainSet_POS.shape[0],self.TrainSet_NEG.shape[0],self.ValidSet_POS.shape[0],self.ValidSet_NEG.shape[0],)))
 
@@ -140,6 +124,7 @@ class data_load(object):
 
         if os.path.exists(TrainSet_POS_file_name) and os.path.exists(TrainSet_NEG_file_name)\
                 and os.path.exists(ValidSet_POS_file_name)and os.path.exists(ValidSet_NEG_file_name):
+            print(blue('Let`s eating exiting data !'))
             self.TrainSet_POS = np.load(TrainSet_POS_file_name)
             self.TrainSet_NEG = np.load(TrainSet_NEG_file_name)
             self.ValidSet_POS = np.load(ValidSet_POS_file_name)
@@ -178,8 +163,9 @@ class data_load(object):
             self.ValidSet_NEG = np.array(self.ValidSet_NEG, dtype=np.uint8)
             np.save(ValidSet_NEG_file_name, self.ValidSet_NEG)
             print('  I`m full ...')
+            print('All data has been saved in zip npy file!')
 
-        print('There are TP:{} TN:{} VP:{} VN:{} and has been successfully eaten and written in zip npy file!'.format(
+        print('There are TP:{} TN:{} VP:{} VN:{} and has been successfully eaten!'.format(
             self.TrainSet_POS.shape[0], self.TrainSet_NEG.shape[0], self.ValidSet_POS.shape[0], self.ValidSet_NEG.shape[0]))
 
         print(darkyellow('Filter the positive data which has less points({}) inside ... '.format(self.arg.positive_points_needed)))
@@ -196,9 +182,14 @@ class data_load(object):
         np.save(ValidSet_NEG_filter_file_name, self.ValidSet_NEG)
         np.save(TrainSet_NEG_filter_file_name, self.TrainSet_NEG)
         np.save(info_file_name,self.arg.positive_points_needed)
+
+        self.train_positive_cube_cnt = self.TrainSet_POS.shape[0]
+        self.train_negative_cube_cnt = self.TrainSet_NEG.shape[0]
+        self.valid_positive_cube_cnt = self.ValidSet_POS.shape[0]
+        self.valid_negative_cube_cnt = self.ValidSet_NEG.shape[0]
+
         print(green('Done! TrainPositive remain: {},ValidPositive remain: {} and has been saved').
               format(self.TrainSet_POS.shape[0], self.ValidSet_POS.shape[0], ))
-
 
 class net_build(object):
     def __init__(self, channel, training=True):
@@ -283,14 +274,13 @@ class net_build(object):
                     except ValueError:
                         print "    Ignore variable:" + key
 
-
 class cube_train(object):
-    def __init__(self, arg, dataset, network, writer):
-        self.arg = arg
+    def __init__(self, arg_, dataset, network, writer_):
+        self.arg = arg_
         self.dataset = dataset
         self.network = network
         self.saver = tf.train.Saver(max_to_keep=100)
-        self.writer = writer
+        self.writer = writer_
         self.random_folder = cfg.RANDOM_STR
 
     def snapshot(self, sess, epoch_cnt=0):
@@ -302,6 +292,13 @@ class cube_train(object):
         filename = os.path.join(output_dir, 'CubeOnly_epoch_{:d}'.format(epoch_cnt) + '.ckpt')
         self.saver.save(sess, filename)
         print 'Wrote snapshot to: {:s}'.format(filename)
+
+    def shuffle_series(self):
+        random.shuffle(self.dataset.TrainSet_POS)
+        random.shuffle(self.dataset.TrainSet_NEG)
+        random.shuffle(self.dataset.ValidSet_POS)
+        random.shuffle(self.dataset.ValidSet_NEG)
+        print('Shuffle the data series')
 
     @staticmethod
     def cv2_rotation_trans(dict_share, key, data, center, angle, scale, translation):
@@ -427,6 +424,7 @@ class cube_train(object):
                     [cfg.EPS, cfg.EPS] + cube_probi) * alpha
                 cube_cross_entropy = tf.reduce_mean(-tf.reduce_sum(tmp, axis=1))
             else:
+                cube_probi = tf.nn.softmax(cube_score)  # use for debug
                 tmp = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=cube_score, labels=cube_label)
                 cube_cross_entropy = tf.reduce_mean(tmp)
 
@@ -462,12 +460,13 @@ class cube_train(object):
         if DEBUG:
             pass
             vispy_init()
-        training_series = range(10,100)  # self.epoch
+        cube_label_gt = np.concatenate((np.ones([self.arg.batch_size]),np.zeros([self.arg.batch_size]))).astype(np.int32)
+        train_epoch_cnt = int(self.dataset.train_positive_cube_cnt / self.arg.batch_size / 2)
+        training_series = range(train_epoch_cnt)#train_epoch_cnt
         for epo_cnt in range(self.arg.epoch_iters):
             for data_idx in training_series:
                 iter = global_step.eval()
                 timer.tic()
-                # series = range(data_idx*self.arg.batch_size, (data_idx+1)*self.arg.batch_size)
                 series = self.train_series_Gen(self.arg.batch_size,'train')
                 data_batchP = self.dataset.get_minibatch(series[0], data_type='train', classify='positive')
                 data_batchN = self.dataset.get_minibatch(series[1], data_type='train', classify='negative')
@@ -479,7 +478,6 @@ class cube_train(object):
                 data_aug = self.cube_augmentation(data_batch, DEBUG=False)
                 timer.toc()
                 time2 = timer.average_time
-                print 'Time cost of loading {:.3f} and processing {:.3f} for {} cube minibatch: '.format(time1, time2,data_batch.shape[0])
                 if DEBUG:
                     a = data_batch[data_idx].sum()
                     b = data_batch[data_idx].sum()
@@ -488,24 +486,25 @@ class cube_train(object):
                     else:
                         print 'points cnt: ', a
                     box_np_view(data_aug[data_idx],data_aug[data_idx+self.arg.batch_size])
-                # feed_dict = {self.network.cube_input: data_aug,
-                #              self.network.cube_label: labels,
-                #              }
+                feed_dict = {self.network.cube_input: data_aug,
+                             self.network.cube_label: cube_label_gt,
+                             }
                 timer.tic()
-                # cube_score_, cube_label_, loss_, merge_op_, _ = \
-                #     sess.run([cube_score, cube_label, loss, merged_op, train_op], feed_dict=feed_dict)
+                cube_probi_, cube_label_, loss_, merge_op_, _ = \
+                    sess.run([cube_probi, cube_label, loss, merged_op, train_op], feed_dict=feed_dict)
                 timer.toc()
 
-                if iter % cfg.TRAIN.ITER_DISPLAY == 0:
-                    print 'Training step: {:3d} loss: {.4f} time_cost: {:3f} '.format(iter, loss_, timer.average_time)
-                    print 'scores: ', str(cube_score_).translate(None, '\n')
-                    print 'divine: ', str(cube_score_).translate(None, '\n')
-                    print 'labels: ', str(cube_label_).translate(None, '\n'), '\n'
-
-                if iter % 40 == 0 and cfg.TRAIN.TENSORBOARD:
+                if iter % 2 == 0:
+                    print 'Training step: {:3d} loss: {:.4f} inference_time: {:.3f} '.format(iter, loss_, timer.average_time)
+                    # print 'Time cost of loading {:.3f} and processing {:.3f} for {} cube minibatch: '.format(time1,time2,data_batch.shape[0])
+                    with printoptions(precision=2, suppress=False,linewidth=10000):
+                        print 'scores: {}'.format(cube_probi_[:,1])
+                        print 'divine:', str(cube_probi_.argmax(axis=1)).translate(None, '\n')
+                        print 'labels:', str(cube_label_).translate(None, '\n'), '\n'
+                if iter % 1 == 0 and cfg.TRAIN.TENSORBOARD:
                     pass
                     self.writer.add_summary(merge_op_, iter)
-                if (iter % 4000 == 0 and cfg.TRAIN.DEBUG_TIMELINE) or iter == 200:
+                if (iter % 1000 == 0 and cfg.TRAIN.DEBUG_TIMELINE) or iter == 200:
                     run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                     run_metadata = tf.RunMetadata()
                     _ = sess.run([cube_score], feed_dict=feed_dict, options=run_options, run_metadata=run_metadata)
@@ -518,34 +517,29 @@ class cube_train(object):
             if cfg.TRAIN.EPOCH_MODEL_SAVE:
                 pass
                 self.snapshot(sess, epo_cnt)
-
-            if cfg.TRAIN.USE_VALID and False:
+            if cfg.TRAIN.USE_VALID:
                 with tf.name_scope('valid_cubic_' + str(epo_cnt + 1)):
                     print 'Valid the net at the end of epoch_{} ...'.format(epo_cnt + 1)
-                    pred_tp_cnt, gt_cnt = 0., 0.
                     hist = np.zeros((cfg.NUM_CLASS, cfg.NUM_CLASS), dtype=np.float32)
+                    valid_epoch_cnt = int(self.dataset.valid_positive_cube_cnt / self.arg.batch_size / 2)
+                    for data_idx in range(valid_epoch_cnt):
+                        series = self.train_series_Gen(self.arg.batch_size, 'valid')
+                        data_batchP = self.dataset.get_minibatch(series[0], data_type='valid', classify='positive')
+                        data_batchN = self.dataset.get_minibatch(series[1], data_type='valid', classify='negative')
+                        data_batch = np.vstack((data_batchP, data_batchN))
 
-                    for data_idx in range(self.val_epoch):  # self.val_epoch
-                        data_batch = self.dataset.get_minibatch(self, [1, 12, 2], 'valid', classify='positive')
+                        feed_dict_ = {self.network.cube_input: data_batch,
+                                      self.network.cube_label: cube_label_gt,
+                                      }
+                        valid_cls_score_ = sess.run(cube_score, feed_dict=feed_dict_)
 
-                        feed_dict = {self.network.cube_input: data_aug,
-                                     self.network.cube_label: labels,
-                                     }
-
-                        cubic_cls_score_, cubic_cls_labels_, recalls_ = sess.run(
-                            [cubic_cls_score, cubic_cls_labels, recalls], feed_dict=feed_dict_)
-                        # train_writer.add_summary(valid, data_idx)
-
-                        pred_tp_cnt = pred_tp_cnt + recalls_[1]
-                        gt_cnt = gt_cnt + recalls_[2]
-                        cubic_class = cubic_cls_score_.argmax(axis=1)
-                        one_hist = fast_hist(cubic_cls_labels_, cubic_class)
+                        valid_result = valid_cls_score_.argmax(axis=1)
+                        one_hist = fast_hist(cube_label_gt, valid_result)
                         if not math.isnan(one_hist[1, 1] / (one_hist[1, 1] + one_hist[0, 1])):
                             if not math.isnan(one_hist[1, 1] / (one_hist[1, 1] + one_hist[1, 0])):
                                 hist += one_hist
                         if cfg.TRAIN.VISUAL_VALID:
-                            print 'Valid step: {:d}/{:d} , rpn recall = {:.3f}' \
-                                .format(data_idx + 1, self.val_epoch, float(recalls_[1]) / recalls_[2])
+                            print 'Valid step: {:d}/{:d}'.format(data_idx + 1, valid_epoch_cnt)
                             print('    class bg precision = {:.3f}  recall = {:.3f}'.format(
                                 (one_hist[0, 0] / (one_hist[0, 0] + one_hist[1, 0] + 1e-6)),
                                 (one_hist[0, 0] / (one_hist[0, 0] + one_hist[0, 1] + 1e-6))))
@@ -558,14 +552,12 @@ class cube_train(object):
 
                 precise_total = hist[1, 1] / (hist[1, 1] + hist[0, 1] + 1e-6)
                 recall_total = hist[1, 1] / (hist[1, 1] + hist[1, 0] + 1e-6)
-                recall_rpn = pred_tp_cnt / gt_cnt
-                valid_res = sess.run(valid_summary, feed_dict={epoch_rpn_recall: recall_rpn,
-                                                               epoch_cubic_recall: recall_total,
-                                                               epoch_cubic_precise: precise_total})
-                train_writer.add_summary(valid_res, epo_cnt + 1)
-                print 'Validation of epoch_{}: rpn_recall {:.3f} cubic_precision = {:.3f}  cubic_recall = {:.3f}' \
-                    .format(epo_cnt + 1, recall_rpn, precise_total, recall_total)
-            random.shuffle(training_series)
+                valid_res = sess.run(valid_summary_op, feed_dict={epoch_cubic_recall: recall_total,
+                                                                  epoch_cubic_precise: precise_total})
+                self.writer.add_summary(valid_res, epo_cnt + 1)
+                print 'Validation of epoch_{}: cubic_precision = {:.3f}  cubic_recall = {:.3f}' \
+                    .format(epo_cnt + 1, precise_total, recall_total)
+            self.shuffle_series()
         print yellow('Training process has done, enjoy every day !')
 
 
@@ -575,19 +567,18 @@ if __name__ == '__main__':
     arg.use_demo = True
     arg.weights = None
     arg.focal_loss = True
-    arg.epoch_iters = 10
-    arg.batch_size = 2000
+    arg.epoch_iters = 200
+    arg.batch_size = 100
     arg.multi_process = 4
     arg.use_aug_data_method = True
-    arg.positive_points_needed = 50
+    arg.positive_points_needed = 40
 
     DataSet = data_load('/home/hexindong/DATASET/DATA_BOXES',arg,one_piece=True)
 
-    NetWork = net_build([64, 128, 128, 64, 2], )
+    NetWork = net_build([64, 128, 128, 64, 2])
 
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         writer = tf.summary.FileWriter(cfg.LOG_DIR, sess.graph, max_queue=1000, flush_secs=1)
         task = cube_train(arg, DataSet, NetWork, writer)
         task.training(sess)
 
-    batch = DataSet.get_minibatch(range(10), data_type='trian', classify='positive')
