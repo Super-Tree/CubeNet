@@ -9,7 +9,7 @@ from tools.timer import Timer
 from network.config import cfg
 from tensorflow.python.client import timeline
 from tools.data_visualize import vispy_init
-from tools.printer import red,blue,yellow,cyan
+from tools.printer import red,blue,yellow,cyan,green,purple,darkyellow
 from easydict import EasyDict as edict
 from boxes_factory import box_np_view
 
@@ -57,21 +57,29 @@ class data_load(object):
     train negative 239576  positive 30924
     """
 
-    def __init__(self, path, one_piece=False):
+    def __init__(self, path, arg_,one_piece=False):
         self.path = path
+        self.arg = arg_
         self.train_positive_cube_cnt = 30924
         self.train_negative_cube_cnt = 239576
         self.valid_positive_cube_cnt = 5940
         self.valid_negative_cube_cnt = 46260
 
-        self.load_all_data = False
         self.TrainSet_POS = []
         self.TrainSet_NEG = []
         self.ValidSet_POS = []
         self.ValidSet_NEG = []
+
+        self.dataset_TrainP_record = 0
+        self.dataset_ValidP_record = 0
+        self.dataset_TrainN_record = 0
+        self.dataset_ValidN_record = 0
+
         if one_piece:
             self.eat_data_in_one_piece()
             self.load_all_data = True
+        else:
+            self.load_all_data = False
 
     def get_minibatch(self, idx_array, data_type='train', classify='positive'):
         one_piece = self.load_all_data
@@ -108,43 +116,89 @@ class data_load(object):
         TrainSet_NEG_file_name = path_add(self.path, 'data_in_one_piece', 'TrainSet_NEG.npy')
         ValidSet_POS_file_name = path_add(self.path, 'data_in_one_piece', 'ValidSet_POS.npy')
         ValidSet_NEG_file_name = path_add(self.path, 'data_in_one_piece', 'ValidSet_NEG.npy')
-        if os.path.exists(TrainSet_POS_file_name) and os.path.exists(ValidSet_NEG_file_name) and os.path.exists(TrainSet_NEG_file_name)and os.path.exists(ValidSet_POS_file_name):
+
+        info_file_name = path_add(self.path, 'filter_data_in_one_piece', 'information_about_files.npy')
+
+        TrainSet_POS_filter_file_name = path_add(self.path, 'filter_data_in_one_piece', 'Filter_TrainSet_POS.npy')
+        ValidSet_POS_filter_file_name = path_add(self.path, 'filter_data_in_one_piece', 'Filter_ValidSet_POS.npy')
+        TrainSet_NEG_filter_file_name = path_add(self.path, 'filter_data_in_one_piece', 'Filter_TrainSet_NEG.npy')
+        ValidSet_NEG_filter_file_name = path_add(self.path, 'filter_data_in_one_piece', 'Filter_ValidSet_NEG.npy')
+
+        if os.path.exists(TrainSet_POS_filter_file_name) and os.path.exists(ValidSet_POS_filter_file_name)\
+                and os.path.exists(TrainSet_NEG_filter_file_name)and os.path.exists(ValidSet_NEG_filter_file_name)\
+                and os.path.exists(info_file_name):
+            print(darkyellow('Eating filtered data(Points more than {}) from npy zip file in folder:data_in_one_piece ...'
+                  .format(np.load(info_file_name))))
+            self.TrainSet_POS = np.load(TrainSet_POS_filter_file_name)
+            self.TrainSet_NEG = np.load(TrainSet_NEG_filter_file_name)
+            self.ValidSet_POS = np.load(ValidSet_POS_filter_file_name)
+            self.ValidSet_NEG = np.load(ValidSet_NEG_filter_file_name)
+            print(purple('Emmm,there are TP:{} TN:{} VP:{} VN:{} in my stomach.'.format(
+                self.TrainSet_POS.shape[0],self.TrainSet_NEG.shape[0],self.ValidSet_POS.shape[0],self.ValidSet_NEG.shape[0],)))
+
+            return None
+
+        if os.path.exists(TrainSet_POS_file_name) and os.path.exists(TrainSet_NEG_file_name)\
+                and os.path.exists(ValidSet_POS_file_name)and os.path.exists(ValidSet_NEG_file_name):
             self.TrainSet_POS = np.load(TrainSet_POS_file_name)
             self.TrainSet_NEG = np.load(TrainSet_NEG_file_name)
             self.ValidSet_POS = np.load(ValidSet_POS_file_name)
             self.ValidSet_NEG = np.load(ValidSet_NEG_file_name)
-            print(cyan('Load data from zip file in folder:data_in_one_piece.'))
-            return None
+        else:
+            print(darkyellow('Let`s eating raw data !'))
+            train_pos_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_TRAIN_BOX','POSITIVE')))
+            train_neg_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_TRAIN_BOX','NEGATIVE')))
+            valid_pos_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_VALID_BOX','POSITIVE')))
+            valid_neg_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_VALID_BOX','NEGATIVE')))
+            for name in train_pos_name_list:
+                data = np.load(path_add(self.path, 'KITTI_TRAIN_BOX', 'POSITIVE') + '/' + name)
+                self.TrainSet_POS.append(data)
+            self.TrainSet_POS = np.array(self.TrainSet_POS, dtype=np.uint8)
+            np.save(TrainSet_POS_file_name,self.TrainSet_POS)
+            print('  Yummy!')
 
-        train_pos_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_TRAIN_BOX','POSITIVE')))
-        train_neg_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_TRAIN_BOX','NEGATIVE')))
-        valid_pos_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_VALID_BOX','POSITIVE')))
-        valid_neg_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_VALID_BOX','NEGATIVE')))
-        print(yellow('Let`s eating !'))
-        for name in train_pos_name_list:
-            self.TrainSet_POS.append(np.load(path_add(self.path, 'KITTI_TRAIN_BOX','POSITIVE')+'/'+name))
-        self.TrainSet_POS = np.array(self.TrainSet_POS, dtype=np.uint8)
-        np.save(TrainSet_POS_file_name,self.TrainSet_POS)
-        print(blue('  Yummy!'))
+            for name in train_neg_name_list:
+                data=np.load(path_add(self.path, 'KITTI_TRAIN_BOX', 'NEGATIVE') + '/' + name)
+                self.TrainSet_NEG.append(data)
+            self.TrainSet_NEG = np.array(self.TrainSet_NEG, dtype=np.uint8)
+            np.save(TrainSet_NEG_file_name, self.TrainSet_NEG)
 
-        for name in train_neg_name_list:
-            self.TrainSet_NEG.append(np.load(path_add(self.path, 'KITTI_TRAIN_BOX','NEGATIVE')+'/'+name))
-        self.TrainSet_NEG = np.array(self.TrainSet_NEG, dtype=np.uint8)
-        np.save(TrainSet_NEG_file_name, self.TrainSet_NEG)
-        print(blue('  Take another piece!'))
+            print('  Take another piece!')
 
-        for name in valid_pos_name_list:
-            self.ValidSet_POS.append(np.load(path_add(self.path, 'KITTI_VALID_BOX','POSITIVE')+'/'+name))
-        self.ValidSet_POS = np.array(self.ValidSet_POS, dtype=np.uint8)
-        np.save(ValidSet_POS_file_name, self.ValidSet_POS)
-        print(blue('  One more!'))
+            for name in valid_pos_name_list:
+                data=np.load(path_add(self.path, 'KITTI_VALID_BOX','POSITIVE')+'/'+name)
+                self.ValidSet_POS.append(data)
+            self.ValidSet_POS = np.array(self.ValidSet_POS, dtype=np.uint8)
+            np.save(ValidSet_POS_file_name, self.ValidSet_POS)
+            print('  One more!')
 
-        for name in valid_neg_name_list:
-            self.ValidSet_NEG.append(np.load(path_add(self.path, 'KITTI_VALID_BOX','NEGATIVE')+'/'+name))
-        self.ValidSet_NEG = np.array(self.ValidSet_NEG, dtype=np.uint8)
-        np.save(ValidSet_NEG_file_name, self.ValidSet_NEG)
-        print(blue('  Full ...!'))
-        print(yellow('Data has been successfully loaded and writed in zip npy file!'))
+            for name in valid_neg_name_list:
+                data = np.load(path_add(self.path, 'KITTI_VALID_BOX','NEGATIVE')+'/'+name)
+                self.ValidSet_NEG.append(data)
+            self.ValidSet_NEG = np.array(self.ValidSet_NEG, dtype=np.uint8)
+            np.save(ValidSet_NEG_file_name, self.ValidSet_NEG)
+            print('  I`m full ...')
+
+        print('There are TP:{} TN:{} VP:{} VN:{} and has been successfully eaten and written in zip npy file!'.format(
+            self.TrainSet_POS.shape[0], self.TrainSet_NEG.shape[0], self.ValidSet_POS.shape[0], self.ValidSet_NEG.shape[0]))
+
+        print(darkyellow('Filter the positive data which has less points({}) inside ... '.format(self.arg.positive_points_needed)))
+        train_sum = np.array([self.TrainSet_POS[i].sum() for i in range(self.TrainSet_POS.shape[0])])
+        keep_mask1 = np.where(train_sum > self.arg.positive_points_needed)
+        self.TrainSet_POS = self.TrainSet_POS[keep_mask1]
+        np.save(TrainSet_POS_filter_file_name, self.TrainSet_POS)
+
+        valid_sum = np.array([self.ValidSet_POS[i].sum() for i in range(self.ValidSet_POS.shape[0])])
+        keep_mask2 = np.where(valid_sum > self.arg.positive_points_needed)
+        self.ValidSet_POS = self.ValidSet_POS[keep_mask2]
+        np.save(ValidSet_POS_filter_file_name, self.ValidSet_POS)
+
+        np.save(ValidSet_NEG_filter_file_name, self.ValidSet_NEG)
+        np.save(TrainSet_NEG_filter_file_name, self.TrainSet_NEG)
+        np.save(info_file_name,self.arg.positive_points_needed)
+        print(green('Done! TrainPositive remain: {},ValidPositive remain: {} and has been saved').
+              format(self.TrainSet_POS.shape[0], self.ValidSet_POS.shape[0], ))
+
 
 class net_build(object):
     def __init__(self, channel, training=True):
@@ -315,6 +369,51 @@ class cube_train(object):
 
         return stack_cube
 
+    def train_series_Gen(self, BatchSize, Type='train'):
+        if Type == 'train':
+            if (self.dataset.dataset_TrainP_record + BatchSize) < self.dataset.train_positive_cube_cnt:
+                PositiveSet = range(self.dataset.dataset_TrainP_record, self.dataset.dataset_TrainP_record+BatchSize)
+                self.dataset.dataset_TrainP_record += BatchSize
+            else:
+                breakpoint = self.dataset.dataset_TrainP_record + BatchSize - self.dataset.train_positive_cube_cnt
+                tmp1 = range(self.dataset.dataset_TrainP_record, self.dataset.train_positive_cube_cnt)
+                tmp2 = range(0, breakpoint)
+                PositiveSet = tmp1+tmp2
+                self.dataset.dataset_TrainP_record = breakpoint
+                
+            if (self.dataset.dataset_TrainN_record + BatchSize) < self.dataset.train_negative_cube_cnt:
+                NegativeSet = range(self.dataset.dataset_TrainN_record, self.dataset.dataset_TrainN_record+BatchSize)
+                self.dataset.dataset_TrainN_record += BatchSize
+            else:
+                breakpoint2 = self.dataset.dataset_TrainN_record + BatchSize - self.dataset.train_negative_cube_cnt
+                tmp3 = range(self.dataset.dataset_TrainN_record, self.dataset.train_negative_cube_cnt)
+                tmp4 = range(0, breakpoint2)
+                NegativeSet = tmp3+tmp4
+                self.dataset.dataset_TrainN_record = breakpoint2
+            return PositiveSet, NegativeSet
+        else:
+            if (self.dataset.dataset_ValidP_record + BatchSize) < self.dataset.valid_positive_cube_cnt:
+                PositiveSet = range(self.dataset.dataset_ValidP_record, self.dataset.dataset_ValidP_record + BatchSize)
+                self.dataset.dataset_ValidP_record += BatchSize
+            else:
+                breakpoint = self.dataset.dataset_ValidP_record + BatchSize - self.dataset.valid_positive_cube_cnt
+                tmp1 = range(self.dataset.dataset_ValidP_record, self.dataset.valid_positive_cube_cnt)
+                tmp2 = range(0, breakpoint)
+                PositiveSet = tmp1 + tmp2
+                self.dataset.dataset_ValidP_record = breakpoint
+
+            if (self.dataset.dataset_ValidN_record + BatchSize) < self.dataset.valid_negative_cube_cnt:
+                NegativeSet = range(self.dataset.dataset_ValidN_record, self.dataset.dataset_ValidN_record + BatchSize)
+                self.dataset.dataset_ValidN_record += BatchSize
+            else:
+                breakpoint2 = self.dataset.dataset_ValidN_record + BatchSize - self.dataset.valid_negative_cube_cnt
+                tmp3 = range(self.dataset.dataset_ValidN_record, self.dataset.valid_negative_cube_cnt)
+                tmp4 = range(0, breakpoint2)
+                NegativeSet = tmp3 + tmp4
+                self.dataset.dataset_ValidN_record = breakpoint2
+            
+            return PositiveSet, NegativeSet
+
     def training(self, sess):
         with tf.name_scope('loss_cube'):
             cube_score = self.network.cube_score
@@ -368,22 +467,33 @@ class cube_train(object):
             for data_idx in training_series:
                 iter = global_step.eval()
                 timer.tic()
-                series = range(data_idx*self.arg.batch_size, (data_idx+1)*self.arg.batch_size)
-                data_batch = self.dataset.get_minibatch(series, data_type='train', classify='positive')
-                a = data_batch.sum()
-                data_aug = self.cube_augmentation(data_batch, DEBUG=False)
-                b = data_batch.sum()
+                # series = range(data_idx*self.arg.batch_size, (data_idx+1)*self.arg.batch_size)
+                series = self.train_series_Gen(self.arg.batch_size,'train')
+                data_batchP = self.dataset.get_minibatch(series[0], data_type='train', classify='positive')
+                data_batchN = self.dataset.get_minibatch(series[1], data_type='train', classify='negative')
+                data_batch = np.vstack((data_batchP,data_batchN))
                 timer.toc()
-                print 'Time cost of loading and processing cube minibatch: ', timer.average_time
-                if DEBUG:
-                    pass
-                    box_np_view(data_batch[data_idx],data_aug[data_idx])
-                feed_dict = {self.network.cube_input: data_aug,
-                             self.network.cube_label: labels,
-                             }
+                time1 = timer.average_time
+
                 timer.tic()
-                cube_score_, cube_label_, loss_, merge_op_, _ = \
-                    sess.run([cube_score, cube_label, loss, merged_op, train_op], feed_dict=feed_dict)
+                data_aug = self.cube_augmentation(data_batch, DEBUG=False)
+                timer.toc()
+                time2 = timer.average_time
+                print 'Time cost of loading {:.3f} and processing {:.3f} for {} cube minibatch: '.format(time1, time2,data_batch.shape[0])
+                if DEBUG:
+                    a = data_batch[data_idx].sum()
+                    b = data_batch[data_idx].sum()
+                    if a != b:
+                        print 'There is some points loss'
+                    else:
+                        print 'points cnt: ', a
+                    box_np_view(data_aug[data_idx],data_aug[data_idx+self.arg.batch_size])
+                # feed_dict = {self.network.cube_input: data_aug,
+                #              self.network.cube_label: labels,
+                #              }
+                timer.tic()
+                # cube_score_, cube_label_, loss_, merge_op_, _ = \
+                #     sess.run([cube_score, cube_label, loss, merged_op, train_op], feed_dict=feed_dict)
                 timer.toc()
 
                 if iter % cfg.TRAIN.ITER_DISPLAY == 0:
@@ -459,13 +569,7 @@ class cube_train(object):
         print yellow('Training process has done, enjoy every day !')
 
 
-
-
 if __name__ == '__main__':
-    DataSet = data_load('/home/hexindong/DATASET/DATA_BOXES',one_piece=True)
-
-    NetWork = net_build([64, 128, 128, 64, 2], )
-
     arg = edict()
     arg.imdb_type = 'kitti'
     arg.use_demo = True
@@ -475,6 +579,12 @@ if __name__ == '__main__':
     arg.batch_size = 2000
     arg.multi_process = 4
     arg.use_aug_data_method = True
+    arg.positive_points_needed = 50
+
+    DataSet = data_load('/home/hexindong/DATASET/DATA_BOXES',arg,one_piece=True)
+
+    NetWork = net_build([64, 128, 128, 64, 2], )
+
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         writer = tf.summary.FileWriter(cfg.LOG_DIR, sess.graph, max_queue=1000, flush_secs=1)
         task = cube_train(arg, DataSet, NetWork, writer)
