@@ -17,7 +17,7 @@ import cv2
 from contextlib import contextmanager
 from tools.utils import fast_hist
 
-DEBUG = False
+DEBUG = True
 
 
 @contextmanager
@@ -279,7 +279,7 @@ class cube_train(object):
         self.arg = arg_
         self.dataset = dataset
         self.network = network
-        self.saver = tf.train.Saver(max_to_keep=100)
+        self.saver = tf.train.Saver(max_to_keep=200)
         self.writer = writer_
         self.random_folder = cfg.RANDOM_STR
 
@@ -462,7 +462,7 @@ class cube_train(object):
             vispy_init()
         cube_label_gt = np.concatenate((np.ones([self.arg.batch_size]),np.zeros([self.arg.batch_size]))).astype(np.int32)
         train_epoch_cnt = int(self.dataset.train_positive_cube_cnt / self.arg.batch_size / 2)
-        training_series = range(train_epoch_cnt)#train_epoch_cnt
+        training_series = range(train_epoch_cnt)  # train_epoch_cnt
         for epo_cnt in range(self.arg.epoch_iters):
             for data_idx in training_series:
                 iter = global_step.eval()
@@ -514,7 +514,7 @@ class cube_train(object):
                     trace_file.write(trace.generate_chrome_trace_format(show_memory=False))
                     trace_file.close()
 
-            if cfg.TRAIN.EPOCH_MODEL_SAVE:
+            if epo_cnt % 2 ==0 and cfg.TRAIN.EPOCH_MODEL_SAVE:
                 pass
                 self.snapshot(sess, epo_cnt)
             if cfg.TRAIN.USE_VALID:

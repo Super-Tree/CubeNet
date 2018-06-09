@@ -397,7 +397,7 @@ def Boxes_labels_Gen(box_es,ns,frame_id='rslidar'):
         # marker position
         marker.pose.position = Point(0., 0., 0.)  # x,y,z
         # marker.lifetime = rospy.Duration(0.1)
-        p0, p1, p2, p3, p4, p5, p6, p7 = box3d_2conner(box_)
+        p0, p1, p2, p3, p4, p5, p6, p7 = box3d_2conner(box_,0)
         # marker line points
         marker.points = []
         for p in [p0, p1, p2, p3, p0, p4, p5, p6, p7, p4, p5, p1, p2, p6, p7, p3]:
@@ -422,7 +422,7 @@ def Boxes_labels_Gen(box_es,ns,frame_id='rslidar'):
         # marker position
         marker.pose.position = Point(0., 0., 0.)  # x,y,z
         # marker.lifetime = rospy.Duration(0.1)
-        p0, p1, p2, p3, p4, p5, p6, p7 = box3d_2conner(box_)
+        p0, p1, p2, p3, p4, p5, p6, p7 = box3d_2conner(box_,0)
         # marker line points
         marker.points = []
         for p in [p0, p1, p2, p3, p0, p4, p5, p6, p7, p4, p5, p1, p2, p6, p7, p3]:

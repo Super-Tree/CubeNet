@@ -7,7 +7,7 @@ import numpy as np
 from tools.data_visualize import pcd_vispy,vispy_init,test_show_rpn_tf,BoxAry_Theta
 
 VISION_DEBUG = True
-USE_ROS = False
+USE_ROS = True
 
 class CubicNet_Test(object):
     def __init__(self, network, data_set, args):
@@ -44,13 +44,10 @@ class CubicNet_Test(object):
 
             merged = tf.summary.merge_all()
         with tf.name_scope('load_weights'):
-            weights = self.args.weights
-            if weights.endswith('.ckpt'):
-                print 'Loading test model weights from {:s}'.format(self.args.weights)
-                self.saver.restore(sess, weights)
-            else:
-                print "error: Function [combinet_test.testing] can not load weights {:s}!".format(self.args.weights)
-                return 0
+            print 'Loading pre-trained model weights from {:s}'.format(self.args.weights)
+            self.net.load_weigths(self.args.weights, sess, self.saver)
+            weights='/home/hexindong/Videos/cubic-local/MODEL_weights/CUBE_ONLY_A0/weighs/CubeOnly_epoch_199.ckpt'
+            self.net.load_weigths(weights, sess, self.saver,specical_flag=True)
 
         vispy_init()  # TODO: Essential step(before sess.run) for using vispy beacuse of the bug of opengl or tensorflow
         timer = Timer()
@@ -85,16 +82,17 @@ class CubicNet_Test(object):
                 scan = blobs['lidar3d_data']
                 img = blobs['image_data']
                 cubic_cls_value = cubic_cls_score_.argmax(axis=1)
-                boxes=BoxAry_Theta(pre_box3d=rpn_rois_3d_,pre_cube_cls=cubic_cls_value)# RNet_rpn_yaw_pred_toshow_  rpn_rois_3d_[:,-1]
+
                 if USE_ROS:
                     from tools.data_visualize import PointCloud_Gen,Boxes_labels_Gen,Image_Gen
                     pointcloud = PointCloud_Gen(scan)
-                    label_boxes = Boxes_labels_Gen(boxes, ns='Predict')
+                    label_boxes = Boxes_labels_Gen(rpn_rois_3d_, ns='Predict')
                     img_ros = Image_Gen(img)
                     pub.publish(pointcloud)
                     img_pub.publish(img_ros)
                     box_pub.publish(label_boxes)
                 else:
+                    boxes = BoxAry_Theta(pre_box3d=rpn_rois_3d_,pre_cube_cls=cubic_cls_value)  # RNet_rpn_yaw_pred_toshow_  rpn_rois_3d_[:,-1]
                     pcd_vispy(scan, img, boxes,index=idx,
                               save_img=False,#cfg.TEST.SAVE_IMAGE,
                               visible=True,

@@ -36,7 +36,7 @@ def cubic_rpn_grid_pyfc(lidarPoints, rpnBoxes,method):
             z_cub = np.divide(points_mv_ctr_rot[:, 2] - min_p[2], cfg.CUBIC_RES[2]).astype(np.int32)
             if not DEBUG:
                 # feature = np.hstack((np.ones([len(points_mv_ctr_rot[:,3]),1]),points_mv_ctr_rot[:,3].reshape(-1,1))) #points_mv_ctr_rot
-                feature = np.ones([len(points_mv_ctr_rot[:,3]),1], dtype=np.float32)*255.0  # points_mv_ctr_rot
+                feature = np.ones([len(points_mv_ctr_rot[:,3]),1], dtype=np.float32)  # points_mv_ctr_rot
             else:
                 # feature = np.hstack((x_cub.reshape(-1,1)-(cfg.CUBIC_SIZE[0]/2),y_cub.reshape(-1,1)-(cfg.CUBIC_SIZE[1]/2),z_cub.reshape(-1,1)-(cfg.CUBIC_SIZE[2]/2),points_mv_ctr_rot[:,3].reshape(-1,1))) #points_mv_ctr_rot
                 feature = np.hstack((x_cub.reshape(-1,1)-(cfg.CUBIC_SIZE[0]/2),y_cub.reshape(-1,1)-(cfg.CUBIC_SIZE[1]/2),z_cub.reshape(-1,1)-(cfg.CUBIC_SIZE[2]/2))) #points_mv_ctr_rot
@@ -46,7 +46,7 @@ def cubic_rpn_grid_pyfc(lidarPoints, rpnBoxes,method):
             y_cub = np.divide(points_mv_min[:, 1], cfg.CUBIC_RES[1]).astype(np.int32)
             z_cub = np.divide(points_mv_min[:, 2], cfg.CUBIC_RES[2]).astype(np.int32)
             # feature = np.hstack((np.ones([len(points_mv_ctr[:,3]),1]),points_mv_ctr[:,3:]))
-            feature = np.ones([len(points_mv_ctr[:,3]),1],dtype=np.float32) * 255.0
+            feature = np.ones([len(points_mv_ctr[:,3]),1],dtype=np.float32)
 
         rpn_new_yaw.append(angel)  # gt_yaw - rotation: because gt is clockwise and rotation is counter clockwise#TODO hxd:check
         cubic_feature = np.zeros(shape=cubic_size, dtype=np.float32)

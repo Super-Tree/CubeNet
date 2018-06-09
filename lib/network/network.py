@@ -61,7 +61,7 @@ class Network(object):
                             if not ignore_missing:
                                 raise
 
-    def load_weigths(self, data_path, session, saver):
+    def load_weigths(self, data_path, session, saver,specical_flag= False):
         import numpy as np
         try:
             if data_path.endswith('.ckpt'):
@@ -84,7 +84,10 @@ class Network(object):
             with tf.variable_scope('', reuse=tf.AUTO_REUSE) as scope:
                 for key in var_to_shape_map:
                     try:
-                        var = tf.get_variable(key, trainable=False)
+                        if specical_flag:
+                            var = tf.get_variable('cubic_cnn/'+key, trainable=False)
+                        else:
+                            var = tf.get_variable(key, trainable=False)
                         session.run(var.assign(reader.get_tensor(key)))
                         print "    Assign pretrain model: " + key
                     except ValueError:

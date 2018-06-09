@@ -11,7 +11,7 @@ from tensorflow.python.client import timeline
 from tools.data_visualize import pcd_vispy, vispy_init, BoxAry_Theta
 
 DEBUG = False
-DEBUG_MEM = True
+DEBUG_MEM = False
 
 class CubicNet_Train(object):
     def __init__(self, network, data_set, args):
@@ -150,6 +150,8 @@ class CubicNet_Train(object):
         if self.args.fine_tune:
             print 'Loading pre-trained model weights from {:s}'.format(self.args.weights)
             self.net.load_weigths(self.args.weights, sess, self.saver)
+            weights='/home/hexindong/Videos/cubic-local/MODEL_weights/CUBE_ONLY_A0/weighs/CubeOnly_epoch_199.ckpt'
+            self.net.load_weigths(weights, sess, self.saver,specical_flag=True)
         trainable_var_for_chk = tf.trainable_variables()
         print 'Variables to train: ', trainable_var_for_chk
 
@@ -203,7 +205,7 @@ class CubicNet_Train(object):
                 cubic_car_cls_recall = one_hist[1, 1] / (one_hist[1, 1] + one_hist[1, 0]+1e-5)
 
                 # print('Step: ',iter)
-                if (iter % 100 == 0 and DEBUG_MEM) or iter == 1:
+                if iter % 100 == 0 and DEBUG_MEM:
                     with open('/proc/' + pid + '/statm', 'r') as f:
                         occupy_mb = int(f.readline().split()[1]) / 256.0
                         # res_stack.append(occupy_mb)
@@ -218,7 +220,7 @@ class CubicNet_Train(object):
                           (iter,self.args.epoch_iters * self.epoch, blobs['serial_num'],timer.average_time,loss_,recall_RPN / cfg.TRAIN.ITER_DISPLAY,cubic_car_cls_prec,cubic_car_cls_recall)
                     recall_RPN = 0.
                     print 'divine: ', str(cubic_result).translate(None,'\n')
-                    print 'labels: ', str(cubic_cls_labels_).translate(None,'\n'), 'MEM: ', int(occupy_mb), '\n'
+                    print 'labels: ', str(cubic_cls_labels_).translate(None,'\n'), '\n'
                 if iter % 40 == 0 and cfg.TRAIN.TENSORBOARD:
                     train_writer.add_summary(merged_, iter)
                     pass
