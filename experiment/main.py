@@ -103,8 +103,7 @@ def get_network(arguments):
 
 
 if __name__ == '__main__':
-    import numpy as np
-    # np.random.seed(5)
+
     args = parse_args()
     checkArgs(args)
 

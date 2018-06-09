@@ -1,4 +1,5 @@
 # coding=utf-8
+import _init_paths
 from numpy import random
 import os
 from os.path import join as path_add

@@ -3,7 +3,6 @@ import tensorflow as tf
 from network.config import cfg
 from tensorflow.python.client import timeline
 from tools.timer import Timer
-import numpy as np
 from tools.data_visualize import pcd_vispy,vispy_init,test_show_rpn_tf,BoxAry_Theta
 
 VISION_DEBUG = True
@@ -18,7 +17,7 @@ class CubicNet_Test(object):
         self.epoch = self.dataset.input_num
 
     def testing(self, sess, test_writer):
-        ##=======================================
+        # =======================================
         if USE_ROS:
             import rospy
             from sensor_msgs.msg import PointCloud,Image
@@ -30,7 +29,7 @@ class CubicNet_Test(object):
             img_pub = rospy.Publisher('images_rgb', Image, queue_size=1000)
             box_pub = rospy.Publisher('label_boxes', MarkerArray, queue_size=1000)
             rospy.loginfo("ROS begins ...")
-        #=======================================
+        # =======================================
         with tf.name_scope("Inference"):
             # RNet_rpn_yaw_pred = self.net.get_output('RNet_theta')[1]
             # RNet_rpn_yaw_gt_delta = self.net.get_output('cubic_grid')[1]
@@ -53,7 +52,7 @@ class CubicNet_Test(object):
         timer = Timer()
         cubic_cls_score = tf.reshape(self.net.get_output('cubic_cnn'), [-1, 2])
 
-        for idx in range(0,self.epoch):
+        for idx in range(self.epoch):
             # index_ = input('Type a new index: ')
             blobs = self.dataset.get_minibatch(idx)
             feed_dict = {
@@ -111,5 +110,4 @@ def network_testing(network, data_set, args):
     with tf.Session(config=config) as sess:
         test_writer = tf.summary.FileWriter(cfg.LOG_DIR, sess.graph, max_queue=300)
         net.testing(sess, test_writer)
-
 
