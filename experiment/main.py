@@ -40,6 +40,9 @@ def parse_args():
 
     parser.add_argument('--useDemo', dest='useDemo',help='whether use continues frame demo',
                         default="False", type=str)
+    parser.add_argument('--DemoChoice', dest='DemoChoice',help='which continues demo to use',
+                        default="drive_0064", type=str)
+
     parser.add_argument('--fineTune', dest='fineTune',help='whether finetune the existing network weight',
                         default='True', type=str)
 

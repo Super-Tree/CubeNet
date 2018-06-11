@@ -60,7 +60,7 @@ def scale_to_255(a, min, max, dtype=np.uint8):
     """
     return (((a - min) / float(max - min)) * 255).astype(dtype)
 
-def point_cloud_2_top(points,res=0.1,zres=0.3,side_range=(-20., 20.),fwd_range=(0., 40.), height_range=(-2., 0.4),):
+def point_cloud_2_top(points,res=0.1,zres=0.3,side_range=(-30., 30.),fwd_range=(0., 60.), height_range=(-2., 0.4),):
     """ Creates an birds eye view representation of the point cloud data for MV3D.
 
     Args:

@@ -23,6 +23,7 @@ from os.path import join as path_add
 from easydict import EasyDict as edict
 from tools.transform import camera_to_lidar_cnr, computeCorners3D, lidar_3d_to_bv, lidar_cnr_to_3d, my_conner2bvbox
 from tools.pcd_py_method.py_pcd import point_cloud as pcd2npScan
+from tools.read_lidar import point_cloud_2_top
 
 class dataset_KITTI_train(object):  # read txt files one by one
     def __init__(self, arguments):
@@ -489,7 +490,11 @@ class dataset_KITTI_test(object):  # read txt files one by one
         self._classes = ('__background__', 'Car')  # , 'Pedestrian', 'Cyclist')
         self.num_classes = len(self._classes)
         if arguments.use_demo:
-            self._data_path = osp.join(cfg.DATA_DIR, 'drive_0064')  # data path
+            self._data_path = osp.join(cfg.DATA_DIR, arguments.DemoChoice)  # data path
+            if arguments.DemoChoice == 'drive_0064':
+                self.prefix_tmp = 6
+            elif arguments.DemoChoice == 'drive_0015':
+                self.prefix_tmp = 10
         else:
             self._data_path = osp.join(cfg.DATA_DIR, 'testing')  # data path
 
@@ -506,9 +511,9 @@ class dataset_KITTI_test(object):  # read txt files one by one
         indice = lambda idx, name: self.inputIndex[name][idx]
         for i in xrange(self.input_num):
             roidb[i]['lidar3d_path'] = self.lidar3d_path_at(indice(i, 'test_index'))
-            roidb[i]['lidar_bv_path'] = self.lidar_bv_path_at(indice(i, 'test_index'))
+            # roidb[i]['lidar_bv_path'] = self.lidar_bv_path_at(indice(i, 'test_index'))
             roidb[i]['image_path'] = self.image_path_at(indice(i, 'test_index'))
-            roidb[i]['calib'] = self.get_calib(indice(i, 'test_index'))
+            # roidb[i]['calib'] = self.get_calib(indice(i, 'test_index'))
         return roidb
 
     def image_path_at(self, index):
@@ -518,7 +523,7 @@ class dataset_KITTI_test(object):  # read txt files one by one
         # set the prefix
         prefix = 'image_2'
         # image_path = '$Faster-RCNN_TF/data/KITTI/object/training/image_2/000000.png'
-        image_path = os.path.join(self._data_path, prefix, str(index).zfill(6) + '.png')
+        image_path = os.path.join(self._data_path, prefix, str(index).zfill(self.prefix_tmp) + '.png')
         assert os.path.exists(image_path), 'Path does not exist: {}'.format(image_path)
         return image_path
 
@@ -529,7 +534,7 @@ class dataset_KITTI_test(object):  # read txt files one by one
         # set the prefix
         prefix = 'velodyne'
         # image_path = '$Faster-RCNN_TF/data/KITTI/object/training/image_2/000000.png'
-        lidar3d_path = os.path.join(self._data_path, prefix, str(index).zfill(6) + '.bin')
+        lidar3d_path = os.path.join(self._data_path, prefix, str(index).zfill(self.prefix_tmp) + '.bin')
         assert os.path.exists(lidar3d_path), 'Path does not exist: {}'.format(lidar3d_path)
         return lidar3d_path
 
@@ -541,14 +546,14 @@ class dataset_KITTI_test(object):  # read txt files one by one
         # set the prefix
         prefix = 'lidar_bv'
         # lidar_bv_path = '$Faster-RCNN_TF/data/KITTI/object/training/lidar_bv/000000.npy'
-        lidar_bv_path = os.path.join(self._data_path, prefix, str(index).zfill(6) + '.npy')
+        lidar_bv_path = os.path.join(self._data_path, prefix, str(index).zfill(self.prefix_tmp) + '.npy')
         assert os.path.exists(lidar_bv_path), \
             'Path does not exist: {}'.format(lidar_bv_path)
         return lidar_bv_path
 
     def get_calib(self, index):
 
-        calib_dir = os.path.join(self._data_path, 'calib', str(index).zfill(6) + '.txt')
+        calib_dir = os.path.join(self._data_path, 'calib', str(index).zfill(self.prefix_tmp) + '.txt')
 
         with open(calib_dir) as fi:
             lines = fi.readlines()
@@ -576,7 +581,7 @@ class dataset_KITTI_test(object):  # read txt files one by one
         return calib
 
     def get_fileIndex(self, data_path):
-        length = len(os.listdir(osp.join(data_path, 'lidar_bv')))
+        length = len(os.listdir(osp.join(data_path, 'velodyne')))
         test_index = range(length)
         return dict({'test_index': test_index})
 
@@ -584,15 +589,17 @@ class dataset_KITTI_test(object):  # read txt files one by one
         """Given a roidb, construct a minibatch sampled from it."""
         dataset = self.roidb
         im_scales = [1]
-        lidar_bv = np.load(dataset[idx]['lidar_bv_path'])
-        lidar_bv_blob = lidar_bv.reshape((1, lidar_bv.shape[0], lidar_bv.shape[1], lidar_bv.shape[2]))
         lidar3d = np.fromfile(dataset[idx]['lidar3d_path'], dtype=np.float32)
         lidar3d_blob = lidar3d.reshape((-1,4))
+
+        lidar_bv = point_cloud_2_top(lidar3d_blob)
+        lidar_bv_blob = lidar_bv.reshape((1, lidar_bv.shape[0], lidar_bv.shape[1], lidar_bv.shape[2]))
+
         img = cv2.imread(dataset[idx]['image_path'])
 
         blobs = dict({'lidar_bv_data': lidar_bv_blob,
                       'lidar3d_data': lidar3d_blob,
-                      'calib': dataset[idx]['calib'],
+                      # 'calib': dataset[idx]['calib'],
                       'im_info': np.array([[lidar_bv_blob.shape[1], lidar_bv_blob.shape[2], im_scales[0]]],dtype=np.float32),
                       'image_data': img
                       })
