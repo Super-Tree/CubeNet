@@ -9,10 +9,10 @@ class test_net(Network):
         self.lidar3d_data = tf.placeholder(tf.float32, shape=[None, 4])
         self.lidar_bv_data = tf.placeholder(tf.float32, shape=[None, 601, 601, 9])
         self.im_info = tf.placeholder(tf.float32, shape=[None, 3])
-        self.calib = tf.placeholder(tf.float32, shape=[None, 12])
+        # self.calib = tf.placeholder(tf.float32, shape=[None, 12])
         self.layers = dict({'lidar3d_data': self.lidar3d_data,
                             'lidar_bv_data': self.lidar_bv_data,
-                            'calib': self.calib,
+                            # 'calib': self.calib,
                             'im_info': self.im_info}
                            )
         self.trainable = trainable
