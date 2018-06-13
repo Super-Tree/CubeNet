@@ -334,17 +334,28 @@ def generate_pcd(path,save_path):
         pointcloud.save(pcd_name)
         print 'save file: {}'.format(pcd_name)
 
-def show_pcd(dataPath):
+def show_pcd(dataPath,box=None):
     fileindex = sorted(os.listdir(dataPath))
     for File in fileindex:
         pc = point_cloud.from_path(os.path.join(dataPath, File))
-        pcd_vispy(pc.pc_data)
-
+        if box is None:
+            pcd_vispy(pc.pc_data)
+        else:
+            pcd_vispy(pc.pc_data,boxes=box)
 
 if __name__=='__main__':
-    save_path = '/home/hexindong/Desktop/jj_data/pcd_file'
-    data_path = '/home/hexindong/Desktop/jj_data/bin_file'
-    generate_pcd(data_path,save_path)
-    print 'Convert the file done ! '
-    # pcd_file_path ='/home/hexindong/DATASET/stidataset/170818-1743-LM120/pcd'
-    # show_pcd(pcd_file_path)
+    # save_path = '/home/hexindong/Desktop/jj_data/pcd_file'
+    # data_path = '/home/hexindong/Desktop/jj_data/bin_file'
+    # generate_pcd(data_path,save_path)
+    # print 'Convert the file done ! '
+
+    pcd_file_path ='/home/hexindong/DATASET/DATA_BOXES/STI_BOX/pcd_car'
+    box = {'center':np.array([0,0,0]).reshape(-1,3),
+           'size':np.array([4,4,2]).reshape(-1,3),
+           'cls_rpn':np.array([4]).reshape(-1,1),
+           'score':np.array([1.0]).reshape(-1,1),
+           'cls_cube':np.array([1.0]).reshape(-1,1),
+           'yaw':np.array([0.0]).reshape(-1,1)
+           }
+    show_pcd(pcd_file_path,box)
+

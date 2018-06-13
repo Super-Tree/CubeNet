@@ -18,7 +18,7 @@ import cv2
 from contextlib import contextmanager
 from tools.utils import fast_hist
 
-DEBUG = True
+DEBUG = False
 
 
 @contextmanager
@@ -192,6 +192,11 @@ class data_load(object):
         print(green('Done! TrainPositive remain: {},ValidPositive remain: {} and has been saved').
               format(self.TrainSet_POS.shape[0], self.ValidSet_POS.shape[0], ))
 
+    def sti_test(self,idx):
+        from tools.pcd_py_method.py_pcd import point_cloud
+        prefix = '/home/hexindong/DATASET/DATA_BOXES/STI_BOX/pcd_car/'
+        pc = point_cloud.from_path(prefix+str(idx)+'.pcd')
+        return pc
 class net_build(object):
     def __init__(self, channel, training=True):
         self.cube_input = tf.placeholder(dtype=tf.float32,
@@ -566,7 +571,7 @@ if __name__ == '__main__':
     arg = edict()
     arg.imdb_type = 'kitti'
     arg.use_demo = True
-    arg.weights = None
+    arg.weights = '/home/hexindong/Videos/cubic-local/MODEL_weights/CUBE_ONLY_A1/CubeOnly_epoch_598.ckpt'
     arg.focal_loss = True
     arg.epoch_iters = 200
     arg.batch_size = 100
