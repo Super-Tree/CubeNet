@@ -17,6 +17,9 @@ import multiprocessing
 import cv2
 from contextlib import contextmanager
 from tools.utils import fast_hist
+from tensorflow.python.ops import init_ops
+import socket
+
 
 DEBUG = False
 
@@ -39,10 +42,10 @@ class data_load(object):
     def __init__(self, path, arg_,one_piece=False):
         self.path = path
         self.arg = arg_
-        self.train_positive_cube_cnt = 0
-        self.train_negative_cube_cnt = 0
-        self.valid_positive_cube_cnt = 0
-        self.valid_negative_cube_cnt = 0
+        self.train_positive_cube_cnt = 20384  # TODO:better to check the number in every time use functions
+        self.train_negative_cube_cnt = 239576
+        self.valid_positive_cube_cnt = 3941
+        self.valid_negative_cube_cnt = 46260
 
         self.TrainSet_POS = []
         self.TrainSet_NEG = []
@@ -58,6 +61,8 @@ class data_load(object):
             self.eat_data_in_one_piece()
             self.load_all_data = True
         else:
+            print(darkyellow('The data[TP({}) TN({}) VP({}) VN({})] will be eaten one by one while training ... '.format(
+                self.train_positive_cube_cnt,self.train_negative_cube_cnt,self.valid_positive_cube_cnt,self.valid_negative_cube_cnt)))
             self.load_all_data = False
 
     def get_minibatch(self, idx_array, data_type='train', classify='positive'):
@@ -202,44 +207,60 @@ class net_build(object):
         self.cube_input = tf.placeholder(dtype=tf.float32,
                                          shape=[None, cfg.CUBIC_SIZE[0], cfg.CUBIC_SIZE[1], cfg.CUBIC_SIZE[2], 1])
         self.cube_label = tf.placeholder(dtype=tf.int32, shape=[None])
+        self.channel = channel
 
         with tf.variable_scope('conv3d_1', reuse=tf.AUTO_REUSE) as scope:
-            self.conv3d_1 = tf.layers.Conv3D(filters=channel[0], kernel_size=[3, 3, 3], activation=tf.nn.relu,
+            self.conv3d_1 = tf.layers.Conv3D(filters=channel[1], kernel_size=[3, 3, 3], activation=tf.nn.relu,
                                              strides=[1, 1, 1], padding="valid", _reuse=tf.AUTO_REUSE,
+                                             kernel_initializer=init_ops.variance_scaling_initializer,
                                              _scope=scope, trainable=training)
             self.maxpool_1 = tf.layers.MaxPooling3D(pool_size=[2, 2, 2], strides=[2, 2, 2], padding='same')
             self.bn_1 = tf.layers.BatchNormalization(fused=True, _reuse=tf.AUTO_REUSE, _scope=scope)
 
         with tf.variable_scope('conv3d_2', reuse=tf.AUTO_REUSE) as scope:
-            self.conv3d_2 = tf.layers.Conv3D(filters=channel[1], kernel_size=[3, 3, 3], activation=tf.nn.relu,
+            self.conv3d_2 = tf.layers.Conv3D(filters=channel[2], kernel_size=[3, 3, 3], activation=tf.nn.relu,
                                              strides=[1, 1, 1], padding="valid", _reuse=tf.AUTO_REUSE,
+                                             kernel_initializer=init_ops.variance_scaling_initializer,
                                              _scope=scope, trainable=training)
             self.maxpool_2 = tf.layers.MaxPooling3D(pool_size=[2, 2, 2], strides=[2, 2, 2], padding='same')
             self.bn_2 = tf.layers.BatchNormalization(fused=True, _reuse=tf.AUTO_REUSE, _scope=scope)
 
         with tf.variable_scope('conv3d_3', reuse=tf.AUTO_REUSE) as scope:
-            self.conv3d_3 = tf.layers.Conv3D(filters=channel[2], kernel_size=[3, 3, 3], activation=tf.nn.relu,
+            self.conv3d_3 = tf.layers.Conv3D(filters=channel[3], kernel_size=[3, 3, 3], activation=tf.nn.relu,
                                              strides=[1, 1, 1], padding="valid", _reuse=tf.AUTO_REUSE,
+                                             kernel_initializer=init_ops.variance_scaling_initializer,
                                              _scope=scope, trainable=training)
             self.bn_3 = tf.layers.BatchNormalization(fused=True, _reuse=tf.AUTO_REUSE, _scope=scope)
 
         with tf.variable_scope('fc_bn_1', reuse=tf.AUTO_REUSE) as scope:
-            self.dense_1 = tf.layers.Dense(channel[3], tf.nn.relu, _reuse=tf.AUTO_REUSE, _scope=scope)
+            self.dense_1 = tf.layers.Dense(channel[4], tf.nn.relu, _reuse=tf.AUTO_REUSE, _scope=scope,
+                                           kernel_initializer=init_ops.variance_scaling_initializer)
             self.bn_4 = tf.layers.BatchNormalization(fused=True, _reuse=tf.AUTO_REUSE, _scope=scope)
 
         with tf.variable_scope('fc_2', reuse=tf.AUTO_REUSE) as scope:
-            self.dense_2 = tf.layers.Dense(channel[4], _reuse=tf.AUTO_REUSE, _scope=scope)
+            self.dense_2 = tf.layers.Dense(channel[5], _reuse=tf.AUTO_REUSE, _scope=scope,
+                                           kernel_initializer=init_ops.variance_scaling_initializer
+                                           )
+
+        self.extractor_int = 0
+        self.extractor_weighs_float = 0
+        self.extractor_outs=0
 
         self.cube_score = self.apply(self.cube_input)
 
     def apply(self, inputs):
         assert len(inputs.shape.as_list()) == 5, ' The data`s dimension of the network isnot 5!'
-        out_conv3d_1 = self.conv3d_1.apply(inputs)
+
+        self.extractor_outs = self.shape_extractor(inputs)
+
+        out_conv3d_1 = self.conv3d_1.apply(self.extractor_outs)
         out_maxp_1 = self.maxpool_1.apply(out_conv3d_1)
         # out_bn_1=self.bn_1.apply(out_maxp_1)
+
         out_conv3d_2 = self.conv3d_2.apply(out_maxp_1)
         out_maxp_2 = self.maxpool_2.apply(out_conv3d_2)
         # out_bn_2=self.bn_2.apply(out_conv3d_2)
+
         out_conv3d_3 = self.conv3d_3.apply(out_maxp_2)
         # out_bn_3=self.bn_3.apply(out_conv3d_3)
 
@@ -247,9 +268,47 @@ class net_build(object):
 
         dense_out_1 = self.dense_1.apply(conv3d_flatten)
         # dense_bn_1 = self.bn_4.apply(dense_out_1)
+
         res = self.dense_2.apply(dense_out_1)
 
         return res
+
+    def shape_extractor(self,inputs):
+
+        def converter_grad(op, grad):
+
+            return grad * 1
+
+        def converter_op(kernel_w):
+            extractor_int = np.greater(kernel_w, 0.0).astype(np.float32)
+
+            return extractor_int
+
+        def py_func(func, inp, Tout, stateful=True, name=None, grad=None):
+            # Need to generate a unique name to avoid duplicates:
+            rnd_name = 'PyFuncGrad' + str(np.random.randint(0, 1E+8))
+
+            tf.RegisterGradient(rnd_name)(grad)  # see _MySquareGrad for grad example
+            g = tf.get_default_graph()
+            with g.gradient_override_map({"PyFunc": rnd_name}):
+                return tf.py_func(func, inp, Tout, stateful=stateful, name=name)
+
+        def tf_extractor(x, name=None):
+            with tf.name_scope(name, "shape_extractor",[x]) as name:
+                z = py_func(converter_op,
+                            [x],
+                            [tf.float32],
+                            name=name,
+                            grad=converter_grad)  # <-- here's the call to the gradient
+                return z[0]
+
+        with tf.variable_scope('ShapeExtractor', reuse=tf.AUTO_REUSE) as scope:
+            self.extractor_weighs_float = tf.get_variable('extractor_float',shape=[3,3,3,1,self.channel[0]],initializer=init_ops.variance_scaling_initializer)
+            self.extractor_int = tf_extractor(self.extractor_weighs_float,name='extractor_int')
+            res = tf.nn.conv3d(inputs,self.extractor_int,strides=[1,1,1,1,1],padding='SAME',name='shape_feature')
+            out = tf.reshape(res,[-1, cfg.CUBIC_SIZE[0], cfg.CUBIC_SIZE[1], cfg.CUBIC_SIZE[2], self.channel[0]])
+
+        return out
 
     def load_weigths(self, data_path, session, saver):
         import numpy as np
@@ -336,7 +395,7 @@ class cube_train(object):
 
         share_dict[key] = points_rot_sca.transpose()
 
-    def cube_augmentation(self, cube_array, aug_data=True,DEBUG=False):
+    def cube_augmentation(self, cube_array, aug_data=True, DEBUG=False):
         processor_cnt = self.arg.multi_process
         batch_size = cube_array.shape[0]
         assert batch_size % processor_cnt == 0, 'BatchSize must be multiples of {}!'.format(processor_cnt)
@@ -461,7 +520,8 @@ class cube_train(object):
             if self.arg.weights is not None:
                 self.network.load_weigths(self.arg.weights, sess, self.saver)
                 print 'Loading pre-trained model weights from {:s}'.format(self.arg.weights)
-
+            else:
+                print red('The network will be re-trained from default initialization!')
         timer = Timer()
         if DEBUG:
             pass
@@ -498,6 +558,7 @@ class cube_train(object):
                 timer.tic()
                 cube_probi_, cube_label_, loss_, merge_op_, _ = \
                     sess.run([cube_probi, cube_label, loss, merged_op, train_op], feed_dict=feed_dict)
+                # i= sess.run([self.network.extractor_outs,self.network.extractor_int],feed_dict=feed_dict)
                 timer.toc()
 
                 if iter % 2 == 0:
@@ -571,17 +632,24 @@ if __name__ == '__main__':
     arg = edict()
     arg.imdb_type = 'kitti'
     arg.use_demo = True
-    arg.weights = '/home/hexindong/Videos/cubic-local/MODEL_weights/CUBE_ONLY_A1/CubeOnly_epoch_598.ckpt'
+    arg.weights = None # '/home/hexindong/Videos/cubic-local/MODEL_weights/CUBE_ONLY_A1/CubeOnly_epoch_598.ckpt'
     arg.focal_loss = True
-    arg.epoch_iters = 200
-    arg.batch_size = 100
-    arg.multi_process = 4
     arg.use_aug_data_method = True
     arg.positive_points_needed = 40
+    arg.epoch_iters = 600
+
+    if socket.gethostname() == "hexindong":
+        arg.batch_size = 100
+        arg.multi_process = 4
+    else:
+        import os
+        os.environ['CUDA_VISIBLE_DEVICES']='5'
+        arg.batch_size = 340
+        arg.multi_process = 20
 
     DataSet = data_load('/home/hexindong/DATASET/DATA_BOXES',arg,one_piece=True)
 
-    NetWork = net_build([64, 128, 128, 64, 2])
+    NetWork = net_build([50,64, 128, 128, 64, 2])
 
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         writer = tf.summary.FileWriter(cfg.LOG_DIR, sess.graph, max_queue=1000, flush_secs=1)
