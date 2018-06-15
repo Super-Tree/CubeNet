@@ -32,7 +32,11 @@ def parse_args():
     parser.add_argument('--method', dest='method',help=' train or test',choices=['train', 'test'],
                         default="train", type=str)
     parser.add_argument('--weights', dest='weights',help='which network weights',
-                        default='/home/hexindong/ws_dl/pyProj/cubic-local/MODEL_weights/CUBIC_2/weights/CubicNet_iter_85000.ckpt', type=str)
+                        default=None, type=str)
+
+    parser.add_argument('--weights_cube', dest='weights_cube',help='which network weights',
+                        default=None, type=str)
+
     parser.add_argument('--epoch_iters', dest='epoch_iters',help='number of iterations to train',
                         default=100, type=int)
     parser.add_argument('--imdb_type', dest='imdb_type',help='dataset to train on(sti/kitti)', choices=['kitti', 'sti'],
@@ -88,16 +92,16 @@ def checkArgs(Args):
     print('Called with args:')
     print(args)
 
-def get_network(arguments):
+def get_network(arguments,net_arg):
     """Get a network by name."""
     if arguments.method == 'train':
         if arguments.imdb_type == 'kitti':
-            return train_net(arguments)
+            return train_net(arguments,net_arg)
         else:
             return train_net_sti(arguments)
     else:
         if arguments.imdb_type == 'kitti':
-            return test_net(arguments,trainable=False)
+            return test_net(arguments,net_arg,trainable=False)
         else:
             return test_net_sti(arguments)
             # print "Loading model from .meta ...."
@@ -112,7 +116,7 @@ if __name__ == '__main__':
 
     data_set = get_data(args)  # load  dataset
 
-    network = get_network(args)  # load network model
+    network = get_network(args,[32,64,128,128,64,2])  # load network model
 
     if args.method == 'train':
         if args.imdb_type == 'kitti':

@@ -45,8 +45,7 @@ class CubicNet_Test(object):
         with tf.name_scope('load_weights'):
             print 'Loading pre-trained model weights from {:s}'.format(self.args.weights)
             self.net.load_weigths(self.args.weights, sess, self.saver)
-            weights='/home/hexindong/Videos/cubic-local/MODEL_weights/CUBE_ONLY_A1/CubeOnly_epoch_598.ckpt'
-            self.net.load_weigths(weights, sess, self.saver,specical_flag=True)
+            self.net.load_weigths(self.args.weights_cube, sess, self.saver,specical_flag=True)
 
         vispy_init()  # TODO: Essential step(before sess.run) for using vispy beacuse of the bug of opengl or tensorflow
         timer = Timer()

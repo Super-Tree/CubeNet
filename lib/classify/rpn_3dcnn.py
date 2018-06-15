@@ -4,6 +4,7 @@ from numpy import random
 import tensorflow as tf
 from tools.data_visualize import pcd_vispy,pcd_show_now,boxary2dic
 from network.config import cfg
+from tensorflow.python.ops import init_ops
 
 DEBUG = False
 
@@ -98,43 +99,49 @@ def bounding_filter(points,box):
 
 
 class cubic(object):
-    def __init__(self, batch_size, channel,training=True):
-        self.batch_size = batch_size
+    def __init__(self, channel,training=True):
         with tf.variable_scope('conv3d_1', reuse=tf.AUTO_REUSE) as scope:
-            self.conv3d_1 = tf.layers.Conv3D(filters=channel[0], kernel_size=[3, 3, 3], activation=tf.nn.relu,
+            self.conv3d_1 = tf.layers.Conv3D(filters=channel[1], kernel_size=[3, 3, 3], activation=tf.nn.relu,
                                              strides=[1, 1, 1], padding="valid", _reuse=tf.AUTO_REUSE,
+                                             kernel_initializer=init_ops.variance_scaling_initializer,
                                              _scope=scope, trainable=training)
-            self.maxpool_1= tf.layers.MaxPooling3D(pool_size=[2,2,2],strides=[2,2,2],padding='same')
+            self.maxpool_1 = tf.layers.MaxPooling3D(pool_size=[2, 2, 2], strides=[2, 2, 2], padding='same')
             self.bn_1 = tf.layers.BatchNormalization(fused=True, _reuse=tf.AUTO_REUSE, _scope=scope)
 
         with tf.variable_scope('conv3d_2', reuse=tf.AUTO_REUSE) as scope:
-            self.conv3d_2 = tf.layers.Conv3D(filters=channel[1], kernel_size=[3, 3, 3], activation=tf.nn.relu,
+            self.conv3d_2 = tf.layers.Conv3D(filters=channel[2], kernel_size=[3, 3, 3], activation=tf.nn.relu,
                                              strides=[1, 1, 1], padding="valid", _reuse=tf.AUTO_REUSE,
+                                             kernel_initializer=init_ops.variance_scaling_initializer,
                                              _scope=scope, trainable=training)
-            self.maxpool_2= tf.layers.MaxPooling3D(pool_size=[2,2,2],strides=[2,2,2],padding='same')
+            self.maxpool_2 = tf.layers.MaxPooling3D(pool_size=[2, 2, 2], strides=[2, 2, 2], padding='same')
             self.bn_2 = tf.layers.BatchNormalization(fused=True, _reuse=tf.AUTO_REUSE, _scope=scope)
 
         with tf.variable_scope('conv3d_3', reuse=tf.AUTO_REUSE) as scope:
-            self.conv3d_3 = tf.layers.Conv3D(filters=channel[2], kernel_size=[3, 3, 3], activation=tf.nn.relu,
+            self.conv3d_3 = tf.layers.Conv3D(filters=channel[3], kernel_size=[3, 3, 3], activation=tf.nn.relu,
                                              strides=[1, 1, 1], padding="valid", _reuse=tf.AUTO_REUSE,
+                                             kernel_initializer=init_ops.variance_scaling_initializer,
                                              _scope=scope, trainable=training)
-            self.bn_3=tf.layers.BatchNormalization(fused=True, _reuse=tf.AUTO_REUSE, _scope=scope)
+            self.bn_3 = tf.layers.BatchNormalization(fused=True, _reuse=tf.AUTO_REUSE, _scope=scope)
 
         with tf.variable_scope('fc_bn_1', reuse=tf.AUTO_REUSE) as scope:
-                self.dense_1 = tf.layers.Dense(channel[3], tf.nn.relu, _reuse=tf.AUTO_REUSE, _scope=scope)
-                self.bn_4 = tf.layers.BatchNormalization(fused=True, _reuse=tf.AUTO_REUSE, _scope=scope)
+            self.dense_1 = tf.layers.Dense(channel[4], tf.nn.relu, _reuse=tf.AUTO_REUSE, _scope=scope,
+                                           kernel_initializer=init_ops.variance_scaling_initializer)
+            self.bn_4 = tf.layers.BatchNormalization(fused=True, _reuse=tf.AUTO_REUSE, _scope=scope)
 
         with tf.variable_scope('fc_2', reuse=tf.AUTO_REUSE) as scope:
-                self.dense_2 = tf.layers.Dense(channel[4], _reuse=tf.AUTO_REUSE, _scope=scope)
+            self.dense_2 = tf.layers.Dense(channel[5], _reuse=tf.AUTO_REUSE, _scope=scope,
+                                           kernel_initializer=init_ops.variance_scaling_initializer
+                                           )
 
     def apply(self, inputs):
-        conv3d_input = tf.reshape(inputs, np.concatenate((np.array([-1]), cubic_size)))
-        out_conv3d_1 = self.conv3d_1.apply(conv3d_input)
+        out_conv3d_1 = self.conv3d_1.apply(inputs)
         out_maxp_1 = self.maxpool_1.apply(out_conv3d_1)
         # out_bn_1=self.bn_1.apply(out_maxp_1)
+
         out_conv3d_2 = self.conv3d_2.apply(out_maxp_1)
         out_maxp_2 = self.maxpool_2.apply(out_conv3d_2)
         # out_bn_2=self.bn_2.apply(out_conv3d_2)
+
         out_conv3d_3 = self.conv3d_3.apply(out_maxp_2)
         # out_bn_3=self.bn_3.apply(out_conv3d_3)
 
@@ -142,19 +149,10 @@ class cubic(object):
 
         dense_out_1 = self.dense_1.apply(conv3d_flatten)
         # dense_bn_1 = self.bn_4.apply(dense_out_1)
+
         res = self.dense_2.apply(dense_out_1)
 
-        return res  #,tf.convert_to_tensor(res_stack, dtype=tf.float32)
-
-    def apply2(self, inputs):
-        inputs = tf.reshape(inputs, cubic_size)
-        out_conv3d_1 = self.conv3d_1.apply(inputs)
-        out_conv3d_2 = self.conv3d_2.apply(out_conv3d_1)
-        out_conv3d_3 = self.conv3d_3.apply(out_conv3d_2)
-
-        mid_shape = tf.shape(out_conv3d_3)
-        res = out_conv3d_3
-        return res
+        return res  # tf.convert_to_tensor(res_stack, dtype=tf.float32)
 
 
 if __name__ == '__main__':

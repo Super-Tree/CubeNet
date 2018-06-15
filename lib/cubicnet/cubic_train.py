@@ -150,8 +150,7 @@ class CubicNet_Train(object):
         if self.args.fine_tune:
             print 'Loading pre-trained model weights from {:s}'.format(self.args.weights)
             self.net.load_weigths(self.args.weights, sess, self.saver)
-            weights='/home/hexindong/Videos/cubic-local/MODEL_weights/CUBE_ONLY_A0/weighs/CubeOnly_epoch_199.ckpt'
-            self.net.load_weigths(weights, sess, self.saver,specical_flag=True)
+            self.net.load_weigths(self.args.weights_cube, sess, self.saver,specical_flag=True)
         trainable_var_for_chk = tf.trainable_variables()
         print 'Variables to train: ', trainable_var_for_chk
 

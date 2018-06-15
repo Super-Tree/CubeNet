@@ -10,7 +10,7 @@ from tools.timer import Timer
 from network.config import cfg
 from tensorflow.python.client import timeline
 from tools.data_visualize import vispy_init
-from tools.printer import red,blue,yellow,cyan,green,purple,darkyellow
+from tools.printer import red, blue, yellow, cyan, green, purple, darkyellow
 from easydict import EasyDict as edict
 from boxes_factory import box_np_view
 import multiprocessing
@@ -20,18 +20,8 @@ from tools.utils import fast_hist
 from tensorflow.python.ops import init_ops
 import socket
 
-
 DEBUG = False
 
-
-@contextmanager
-def printoptions(*args, **kwargs):
-    original_options = np.get_printoptions()
-    np.set_printoptions(*args, **kwargs)
-    try:
-        yield
-    finally:
-        np.set_printoptions(**original_options)
 
 class data_load(object):
     """
@@ -39,7 +29,7 @@ class data_load(object):
     train negative 239576  positive 30924
     """
 
-    def __init__(self, path, arg_,one_piece=False):
+    def __init__(self, path, arg_, one_piece=False):
         self.path = path
         self.arg = arg_
         self.train_positive_cube_cnt = 20384  # TODO:better to check the number in every time use functions
@@ -57,12 +47,15 @@ class data_load(object):
         self.dataset_TrainN_record = 0
         self.dataset_ValidN_record = 0
 
+        self.conv3d_int_weights = 0
         if one_piece:
             self.eat_data_in_one_piece()
             self.load_all_data = True
         else:
-            print(darkyellow('The data[TP({}) TN({}) VP({}) VN({})] will be eaten one by one while training ... '.format(
-                self.train_positive_cube_cnt,self.train_negative_cube_cnt,self.valid_positive_cube_cnt,self.valid_negative_cube_cnt)))
+            print(
+                darkyellow('The data[TP({}) TN({}) VP({}) VN({})] will be eaten one by one while training ... '.format(
+                    self.train_positive_cube_cnt, self.train_negative_cube_cnt, self.valid_positive_cube_cnt,
+                    self.valid_negative_cube_cnt)))
             self.load_all_data = False
 
     def get_minibatch(self, idx_array, data_type='train', classify='positive'):
@@ -108,11 +101,12 @@ class data_load(object):
         TrainSet_NEG_filter_file_name = path_add(self.path, 'filter_data_in_one_piece', 'Filter_TrainSet_NEG.npy')
         ValidSet_NEG_filter_file_name = path_add(self.path, 'filter_data_in_one_piece', 'Filter_ValidSet_NEG.npy')
 
-        if os.path.exists(TrainSet_POS_filter_file_name) and os.path.exists(ValidSet_POS_filter_file_name)\
-                and os.path.exists(TrainSet_NEG_filter_file_name)and os.path.exists(ValidSet_NEG_filter_file_name)\
+        if os.path.exists(TrainSet_POS_filter_file_name) and os.path.exists(ValidSet_POS_filter_file_name) \
+                and os.path.exists(TrainSet_NEG_filter_file_name) and os.path.exists(ValidSet_NEG_filter_file_name) \
                 and os.path.exists(info_file_name):
-            print(darkyellow('Eating filtered data(Points more than {}) from npy zip file in folder:filter_data_in_one_piece ...'
-                  .format(np.load(info_file_name))))
+            print(darkyellow(
+                'Eating filtered data(Points more than {}) from npy zip file in folder:filter_data_in_one_piece ...'
+                    .format(np.load(info_file_name))))
             self.TrainSet_POS = np.load(TrainSet_POS_filter_file_name)
             self.TrainSet_NEG = np.load(TrainSet_NEG_filter_file_name)
             self.ValidSet_POS = np.load(ValidSet_POS_filter_file_name)
@@ -124,12 +118,13 @@ class data_load(object):
             self.valid_negative_cube_cnt = self.ValidSet_NEG.shape[0]
 
             print(purple('Emmm,there are TP:{} TN:{} VP:{} VN:{} in my stomach.'.format(
-                self.TrainSet_POS.shape[0],self.TrainSet_NEG.shape[0],self.ValidSet_POS.shape[0],self.ValidSet_NEG.shape[0],)))
+                self.TrainSet_POS.shape[0], self.TrainSet_NEG.shape[0], self.ValidSet_POS.shape[0],
+                self.ValidSet_NEG.shape[0], )))
 
             return None
 
-        if os.path.exists(TrainSet_POS_file_name) and os.path.exists(TrainSet_NEG_file_name)\
-                and os.path.exists(ValidSet_POS_file_name)and os.path.exists(ValidSet_NEG_file_name):
+        if os.path.exists(TrainSet_POS_file_name) and os.path.exists(TrainSet_NEG_file_name) \
+                and os.path.exists(ValidSet_POS_file_name) and os.path.exists(ValidSet_NEG_file_name):
             print(blue('Let`s eating exiting data !'))
             self.TrainSet_POS = np.load(TrainSet_POS_file_name)
             self.TrainSet_NEG = np.load(TrainSet_NEG_file_name)
@@ -137,19 +132,19 @@ class data_load(object):
             self.ValidSet_NEG = np.load(ValidSet_NEG_file_name)
         else:
             print(darkyellow('Let`s eating raw data !'))
-            train_pos_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_TRAIN_BOX','POSITIVE')))
-            train_neg_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_TRAIN_BOX','NEGATIVE')))
-            valid_pos_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_VALID_BOX','POSITIVE')))
-            valid_neg_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_VALID_BOX','NEGATIVE')))
+            train_pos_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_TRAIN_BOX', 'POSITIVE')))
+            train_neg_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_TRAIN_BOX', 'NEGATIVE')))
+            valid_pos_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_VALID_BOX', 'POSITIVE')))
+            valid_neg_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_VALID_BOX', 'NEGATIVE')))
             for name in train_pos_name_list:
                 data = np.load(path_add(self.path, 'KITTI_TRAIN_BOX', 'POSITIVE') + '/' + name)
                 self.TrainSet_POS.append(data)
             self.TrainSet_POS = np.array(self.TrainSet_POS, dtype=np.uint8)
-            np.save(TrainSet_POS_file_name,self.TrainSet_POS)
+            np.save(TrainSet_POS_file_name, self.TrainSet_POS)
             print('  Yummy!')
 
             for name in train_neg_name_list:
-                data=np.load(path_add(self.path, 'KITTI_TRAIN_BOX', 'NEGATIVE') + '/' + name)
+                data = np.load(path_add(self.path, 'KITTI_TRAIN_BOX', 'NEGATIVE') + '/' + name)
                 self.TrainSet_NEG.append(data)
             self.TrainSet_NEG = np.array(self.TrainSet_NEG, dtype=np.uint8)
             np.save(TrainSet_NEG_file_name, self.TrainSet_NEG)
@@ -157,14 +152,14 @@ class data_load(object):
             print('  Take another piece!')
 
             for name in valid_pos_name_list:
-                data=np.load(path_add(self.path, 'KITTI_VALID_BOX','POSITIVE')+'/'+name)
+                data = np.load(path_add(self.path, 'KITTI_VALID_BOX', 'POSITIVE') + '/' + name)
                 self.ValidSet_POS.append(data)
             self.ValidSet_POS = np.array(self.ValidSet_POS, dtype=np.uint8)
             np.save(ValidSet_POS_file_name, self.ValidSet_POS)
             print('  One more!')
 
             for name in valid_neg_name_list:
-                data = np.load(path_add(self.path, 'KITTI_VALID_BOX','NEGATIVE')+'/'+name)
+                data = np.load(path_add(self.path, 'KITTI_VALID_BOX', 'NEGATIVE') + '/' + name)
                 self.ValidSet_NEG.append(data)
             self.ValidSet_NEG = np.array(self.ValidSet_NEG, dtype=np.uint8)
             np.save(ValidSet_NEG_file_name, self.ValidSet_NEG)
@@ -172,9 +167,11 @@ class data_load(object):
             print('All data has been saved in zip npy file!')
 
         print('There are TP:{} TN:{} VP:{} VN:{} and has been successfully eaten!'.format(
-            self.TrainSet_POS.shape[0], self.TrainSet_NEG.shape[0], self.ValidSet_POS.shape[0], self.ValidSet_NEG.shape[0]))
+            self.TrainSet_POS.shape[0], self.TrainSet_NEG.shape[0], self.ValidSet_POS.shape[0],
+            self.ValidSet_NEG.shape[0]))
 
-        print(darkyellow('Filter the positive data which has less points({}) inside ... '.format(self.arg.positive_points_needed)))
+        print(darkyellow(
+            'Filter the positive data which has less points({}) inside ... '.format(self.arg.positive_points_needed)))
         train_sum = np.array([self.TrainSet_POS[i].sum() for i in range(self.TrainSet_POS.shape[0])])
         keep_mask1 = np.where(train_sum > self.arg.positive_points_needed)
         self.TrainSet_POS = self.TrainSet_POS[keep_mask1]
@@ -187,7 +184,7 @@ class data_load(object):
 
         np.save(ValidSet_NEG_filter_file_name, self.ValidSet_NEG)
         np.save(TrainSet_NEG_filter_file_name, self.TrainSet_NEG)
-        np.save(info_file_name,self.arg.positive_points_needed)
+        np.save(info_file_name, self.arg.positive_points_needed)
 
         self.train_positive_cube_cnt = self.TrainSet_POS.shape[0]
         self.train_negative_cube_cnt = self.TrainSet_NEG.shape[0]
@@ -195,13 +192,15 @@ class data_load(object):
         self.valid_negative_cube_cnt = self.ValidSet_NEG.shape[0]
 
         print(green('Done! TrainPositive remain: {},ValidPositive remain: {} and has been saved').
-              format(self.TrainSet_POS.shape[0], self.ValidSet_POS.shape[0], ))
+            format(self.TrainSet_POS.shape[0], self.ValidSet_POS.shape[0], ))
 
-    def sti_test(self,idx):
+    def sti_test(self, idx):
         from tools.pcd_py_method.py_pcd import point_cloud
         prefix = '/home/hexindong/DATASET/DATA_BOXES/STI_BOX/pcd_car/'
-        pc = point_cloud.from_path(prefix+str(idx)+'.pcd')
+        pc = point_cloud.from_path(prefix + str(idx) + '.pcd')
         return pc
+
+
 class net_build(object):
     def __init__(self, channel, training=True):
         self.cube_input = tf.placeholder(dtype=tf.float32,
@@ -244,7 +243,12 @@ class net_build(object):
 
         self.extractor_int = 0
         self.extractor_weighs_float = 0
-        self.extractor_outs=0
+        self.extractor_outs = 0
+        self.conv1 = self.conv3d_1.trainable_weights
+        self.conv2 = self.conv3d_2.trainable_weights
+        self.conv3 = self.conv3d_3.trainable_weights
+        self.fc1 = self.dense_1.trainable_weights
+        self.fc2 = self.dense_2.trainable_weights
 
         self.cube_score = self.apply(self.cube_input)
 
@@ -273,11 +277,10 @@ class net_build(object):
 
         return res
 
-    def shape_extractor(self,inputs):
+    def shape_extractor(self, inputs):
 
         def converter_grad(op, grad):
-
-            return grad * 1
+            return grad * 25
 
         def converter_op(kernel_w):
             extractor_int = np.greater(kernel_w, 0.0).astype(np.float32)
@@ -294,7 +297,7 @@ class net_build(object):
                 return tf.py_func(func, inp, Tout, stateful=stateful, name=name)
 
         def tf_extractor(x, name=None):
-            with tf.name_scope(name, "shape_extractor",[x]) as name:
+            with tf.name_scope(name, "shape_extractor", [x]) as name:
                 z = py_func(converter_op,
                             [x],
                             [tf.float32],
@@ -303,10 +306,12 @@ class net_build(object):
                 return z[0]
 
         with tf.variable_scope('ShapeExtractor', reuse=tf.AUTO_REUSE) as scope:
-            self.extractor_weighs_float = tf.get_variable('extractor_float',shape=[3,3,3,1,self.channel[0]],initializer=init_ops.variance_scaling_initializer)
-            self.extractor_int = tf_extractor(self.extractor_weighs_float,name='extractor_int')
-            res = tf.nn.conv3d(inputs,self.extractor_int,strides=[1,1,1,1,1],padding='SAME',name='shape_feature')
-            out = tf.reshape(res,[-1, cfg.CUBIC_SIZE[0], cfg.CUBIC_SIZE[1], cfg.CUBIC_SIZE[2], self.channel[0]])
+            self.extractor_weighs_float = tf.get_variable('extractor_float', shape=[3, 3, 3, 1, self.channel[0]],
+                                                          initializer=init_ops.variance_scaling_initializer)
+            self.extractor_int = tf_extractor(self.extractor_weighs_float, name='extractor_int')
+            res = tf.nn.conv3d(inputs, self.extractor_int, strides=[1, 1, 1, 1, 1], padding='SAME',
+                               name='shape_feature')
+            out = tf.reshape(res, [-1, cfg.CUBIC_SIZE[0], cfg.CUBIC_SIZE[1], cfg.CUBIC_SIZE[2], self.channel[0]])
 
         return out
 
@@ -339,12 +344,13 @@ class net_build(object):
                     except ValueError:
                         print "    Ignore variable:" + key
 
+
 class cube_train(object):
     def __init__(self, arg_, dataset, network, writer_):
         self.arg = arg_
         self.dataset = dataset
         self.network = network
-        self.saver = tf.train.Saver(max_to_keep=200)
+        self.saver = tf.train.Saver(max_to_keep=1000)
         self.writer = writer_
         self.random_folder = cfg.RANDOM_STR
 
@@ -365,12 +371,21 @@ class cube_train(object):
         random.shuffle(self.dataset.ValidSet_NEG)
         print('Shuffle the data series')
 
+    @contextmanager
+    def printoptions(self, *args, **kwargs):
+        original_options = np.get_printoptions()
+        np.set_printoptions(*args, **kwargs)
+        try:
+            yield
+        finally:
+            np.set_printoptions(**original_options)
+
     @staticmethod
     def cv2_rotation_trans(dict_share, key, data, center, angle, scale, translation):
         def cv2_op(image):
-            image = image.reshape(cfg.CUBIC_SIZE[0],cfg.CUBIC_SIZE[1],-1)
-            M = cv2.getRotationMatrix2D(center, angle*57.296, scale)
-            rotated = cv2.warpAffine(image, M, (cfg.CUBIC_SIZE[0],cfg.CUBIC_SIZE[1]))
+            image = image.reshape(cfg.CUBIC_SIZE[0], cfg.CUBIC_SIZE[1], -1)
+            M = cv2.getRotationMatrix2D(center, angle * 57.296, scale)
+            rotated = cv2.warpAffine(image, M, (cfg.CUBIC_SIZE[0], cfg.CUBIC_SIZE[1]))
             # watch1 = image.sum(axis=-1, ).reshape(30, 30, 1)
             # watch2 = rotated.sum(axis=-1,).reshape(30,30,1)
             # cv2.namedWindow('a1',cv2.WINDOW_NORMAL)
@@ -379,6 +394,7 @@ class cube_train(object):
             # cv2.imshow('a2',watch2)
             # cv2.waitKey()
             return rotated
+
         dict_share[key] = np.array(map(cv2_op, data), dtype=np.uint8).astype(np.float32)
 
     @staticmethod
@@ -413,10 +429,10 @@ class cube_train(object):
             else:
                 angel = 0.0
                 scalar = 1.0
-                translation = np.zeros([3,1], dtype=np.float32)
+                translation = np.zeros([3, 1], dtype=np.float32)
             angel_out.append(angel)
             points_min = cube_array[delta * i:delta * i + delta]
-            center = (cfg.CUBIC_SIZE[0]/2, cfg.CUBIC_SIZE[1]/2)
+            center = (cfg.CUBIC_SIZE[0] / 2, cfg.CUBIC_SIZE[1] / 2)
             # processor = multiprocessing.Process(target=cube_train.single_process_task,
             #                                     args=(result_dict, i, points_min, center, angel, scalar, translation))
             processor = multiprocessing.Process(target=cube_train.cv2_rotation_trans,
@@ -427,30 +443,30 @@ class cube_train(object):
         map(multiprocessing.Process.join, processor_list)
         for i in range(processor_cnt):
             data_list.append(result_dict[i])
-        stack_cube = np.array(data_list).reshape(-1,cfg.CUBIC_SIZE[0],cfg.CUBIC_SIZE[1],cfg.CUBIC_SIZE[2],1)
+        stack_cube = np.array(data_list).reshape(-1, cfg.CUBIC_SIZE[0], cfg.CUBIC_SIZE[1], cfg.CUBIC_SIZE[2], 1)
 
         return stack_cube
 
     def train_series_Gen(self, BatchSize, Type='train'):
         if Type == 'train':
             if (self.dataset.dataset_TrainP_record + BatchSize) < self.dataset.train_positive_cube_cnt:
-                PositiveSet = range(self.dataset.dataset_TrainP_record, self.dataset.dataset_TrainP_record+BatchSize)
+                PositiveSet = range(self.dataset.dataset_TrainP_record, self.dataset.dataset_TrainP_record + BatchSize)
                 self.dataset.dataset_TrainP_record += BatchSize
             else:
                 breakpoint = self.dataset.dataset_TrainP_record + BatchSize - self.dataset.train_positive_cube_cnt
                 tmp1 = range(self.dataset.dataset_TrainP_record, self.dataset.train_positive_cube_cnt)
                 tmp2 = range(0, breakpoint)
-                PositiveSet = tmp1+tmp2
+                PositiveSet = tmp1 + tmp2
                 self.dataset.dataset_TrainP_record = breakpoint
-                
+
             if (self.dataset.dataset_TrainN_record + BatchSize) < self.dataset.train_negative_cube_cnt:
-                NegativeSet = range(self.dataset.dataset_TrainN_record, self.dataset.dataset_TrainN_record+BatchSize)
+                NegativeSet = range(self.dataset.dataset_TrainN_record, self.dataset.dataset_TrainN_record + BatchSize)
                 self.dataset.dataset_TrainN_record += BatchSize
             else:
                 breakpoint2 = self.dataset.dataset_TrainN_record + BatchSize - self.dataset.train_negative_cube_cnt
                 tmp3 = range(self.dataset.dataset_TrainN_record, self.dataset.train_negative_cube_cnt)
                 tmp4 = range(0, breakpoint2)
-                NegativeSet = tmp3+tmp4
+                NegativeSet = tmp3 + tmp4
                 self.dataset.dataset_TrainN_record = breakpoint2
             return PositiveSet, NegativeSet
         else:
@@ -473,7 +489,7 @@ class cube_train(object):
                 tmp4 = range(0, breakpoint2)
                 NegativeSet = tmp3 + tmp4
                 self.dataset.dataset_ValidN_record = breakpoint2
-            
+
             return PositiveSet, NegativeSet
 
     def training(self, sess):
@@ -497,14 +513,39 @@ class cube_train(object):
 
         with tf.name_scope('train_op'):
             global_step = tf.Variable(1, trainable=False, name='Global_Step')
-            lr = tf.train.exponential_decay(cfg.TRAIN.LEARNING_RATE, global_step, 10000, 0.90, name='decay-Lr')
+            lr = tf.train.exponential_decay(self.arg.lr, global_step, 1000, 0.90, name='decay-Lr')
             train_op = tf.train.MomentumOptimizer(lr, momentum=0.9).minimize(loss, global_step=global_step)
 
         with tf.name_scope('train_cubic'):
+            extractor_int = self.network.extractor_int
+            extractor_float = self.network.extractor_weighs_float
+
+            # extractor_F_grad = tf.gradients(loss, extractor_float)
+            # extractor_Int_grad = tf.gradients(loss, extractor_int)
+            # conv1_grad = tf.gradients(loss, self.network.conv1)
+            # conv2_grad = tf.gradients(loss, self.network.conv2)
+            # conv3_grad = tf.gradients(loss, self.network.conv3)
+            # fc1_grad = tf.gradients(loss, self.network.fc1)
+            # fc2_grad = tf.gradients(loss, self.network.fc2)
+
+            tf.summary.image('extractor_int', tf.reshape(extractor_int, [-1, 27, 32, 1]))
+            # tf.summary.image('extractor_float', tf.reshape(extractor_float, [-1, 27, 32, 1]))
+            # tf.summary.image('conv1_kernel', tf.reshape(self.network.conv1[0], [-1, 27, 32, 1]), max_outputs=3)
+            # tf.summary.image('conv2_kernel', tf.reshape(self.network.conv2[0], [-1, 27, 64, 1]), max_outputs=3)
+            # tf.summary.image('conv3_kernel', tf.reshape(self.network.conv3[0], [-1, 27, 128, 1]), max_outputs=3)
+            #
+            # tf.summary.histogram('float_grad', extractor_F_grad)
+            # tf.summary.histogram('Int_grad', extractor_Int_grad)
+            # tf.summary.histogram('conv1_grad', conv1_grad[0])
+            # tf.summary.histogram('conv2_grad', conv2_grad[0])
+            # tf.summary.histogram('conv3_grad', conv3_grad[0])
+            # tf.summary.histogram('fc1_grad', fc1_grad[0])
+            # tf.summary.histogram('fc2_grad', fc2_grad[0])
+
             tf.summary.scalar('total_loss', loss)
             glb_var = tf.global_variables()
-            for var in glb_var:
-                tf.summary.histogram(var.name, var)
+            # for var in glb_var:
+            # tf.summary.histogram(var.name, var)
             merged_op = tf.summary.merge_all()
 
         with tf.name_scope('valid_cubic'):
@@ -513,7 +554,10 @@ class cube_train(object):
             epoch_cubic_precise = tf.placeholder(dtype=tf.float32)
             cubic_precise_smy_op = tf.summary.scalar('cubic_precise', epoch_cubic_precise)
 
-            valid_summary_op = tf.summary.merge([cubic_recall_smy_op, cubic_precise_smy_op])
+            epoch_extractor_occupy = tf.placeholder(dtype=tf.float32)
+            cubic_occupy_smy_op = tf.summary.scalar('extractor_occupy', epoch_extractor_occupy)
+
+            valid_summary_op = tf.summary.merge([cubic_recall_smy_op, cubic_precise_smy_op, cubic_occupy_smy_op])
 
         with tf.name_scope('load_weights'):
             sess.run(tf.global_variables_initializer())
@@ -526,22 +570,23 @@ class cube_train(object):
         if DEBUG:
             pass
             vispy_init()
-        cube_label_gt = np.concatenate((np.ones([self.arg.batch_size]),np.zeros([self.arg.batch_size]))).astype(np.int32)
+        cube_label_gt = np.concatenate((np.ones([self.arg.batch_size]), np.zeros([self.arg.batch_size]))).astype(
+            np.int32)
         train_epoch_cnt = int(self.dataset.train_positive_cube_cnt / self.arg.batch_size / 2)
         training_series = range(train_epoch_cnt)  # train_epoch_cnt
         for epo_cnt in range(self.arg.epoch_iters):
             for data_idx in training_series:
                 iter = global_step.eval()
                 timer.tic()
-                series = self.train_series_Gen(self.arg.batch_size,'train')
+                series = self.train_series_Gen(self.arg.batch_size, 'train')
                 data_batchP = self.dataset.get_minibatch(series[0], data_type='train', classify='positive')
                 data_batchN = self.dataset.get_minibatch(series[1], data_type='train', classify='negative')
-                data_batch = np.vstack((data_batchP,data_batchN))
+                data_batch = np.vstack((data_batchP, data_batchN))
                 timer.toc()
                 time1 = timer.average_time
 
                 timer.tic()
-                data_aug = self.cube_augmentation(data_batch, DEBUG=False)
+                data_aug = self.cube_augmentation(data_batch, aug_data=True, DEBUG=False)
                 timer.toc()
                 time2 = timer.average_time
                 if DEBUG:
@@ -551,27 +596,38 @@ class cube_train(object):
                         print 'There is some points loss'
                     else:
                         print 'points cnt: ', a
-                    box_np_view(data_aug[data_idx],data_aug[data_idx+self.arg.batch_size])
+                    box_np_view(data_aug[data_idx], data_aug[data_idx + self.arg.batch_size])
                 feed_dict = {self.network.cube_input: data_aug,
                              self.network.cube_label: cube_label_gt,
                              }
                 timer.tic()
-                cube_probi_, cube_label_, loss_, merge_op_, _ = \
-                    sess.run([cube_probi, cube_label, loss, merged_op, train_op], feed_dict=feed_dict)
-                # i= sess.run([self.network.extractor_outs,self.network.extractor_int],feed_dict=feed_dict)
+                extractor_int_, cube_probi_, cube_label_, loss_, merge_op_, _ = \
+                    sess.run([extractor_int, cube_probi, cube_label, loss, merged_op,
+                              train_op], feed_dict=feed_dict)
                 timer.toc()
 
-                if iter % 2 == 0:
-                    print 'Training step: {:3d} loss: {:.4f} inference_time: {:.3f} '.format(iter, loss_, timer.average_time)
-                    # print 'Time cost of loading {:.3f} and processing {:.3f} for {} cube minibatch: '.format(time1,time2,data_batch.shape[0])
-                    with printoptions(precision=2, suppress=False,linewidth=10000):
-                        print 'scores: {}'.format(cube_probi_[:,1])
-                        print 'divine:', str(cube_probi_.argmax(axis=1)).translate(None, '\n')
-                        print 'labels:', str(cube_label_).translate(None, '\n'), '\n'
-                if iter % 1 == 0 and cfg.TRAIN.TENSORBOARD:
+                if iter % 4 == 0:
+                    predict_result = cube_probi_.argmax(axis=1)
+                    one_train_hist = fast_hist(cube_label_gt, predict_result)
+                    occupy_part = extractor_int_.sum() / extractor_int_.size
+                    print 'Training step: {:3d} loss: {:.4f} occupy: {}%({}) inference_time: {:.3f} '.format(iter,loss_, int(
+                            occupy_part * 100), extractor_int_.sum(), timer.average_time)
+                    # print('    class bg precision = {:.3f}  recall = {:.3f}'.format(
+                    #     (one_train_hist[0, 0] / (one_train_hist[0, 0] + one_train_hist[1, 0] + 1e-6)),
+                    #     (one_train_hist[0, 0] / (one_train_hist[0, 0] + one_train_hist[0, 1] + 1e-6))))
+                    print '    class car precision = {:.3f}  recall = {:.3f}'.format(
+                        (one_train_hist[1, 1] / (one_train_hist[1, 1] + one_train_hist[0, 1] + 1e-6)),
+                        (one_train_hist[1, 1] / (one_train_hist[1, 1] + one_train_hist[1, 0] + 1e-6))), '\n'
+                    if socket.gethostname() == "hexindong" and False:
+                        with self.printoptions(precision=2, suppress=False, linewidth=10000):
+                            print 'scores: {}'.format(cube_probi_[:, 1])
+                            print 'divine:', str(predict_result)
+                            print 'labels:', str(cube_label_), '\n'
+
+                if iter % 2 == 0 and cfg.TRAIN.TENSORBOARD:
                     pass
                     self.writer.add_summary(merge_op_, iter)
-                if (iter % 1000 == 0 and cfg.TRAIN.DEBUG_TIMELINE) or iter == 200:
+                if (iter % 3000 == 0 and cfg.TRAIN.DEBUG_TIMELINE) or iter == 200:
                     run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                     run_metadata = tf.RunMetadata()
                     _ = sess.run([cube_score], feed_dict=feed_dict, options=run_options, run_metadata=run_metadata)
@@ -581,7 +637,7 @@ class cube_train(object):
                     trace_file.write(trace.generate_chrome_trace_format(show_memory=False))
                     trace_file.close()
 
-            if epo_cnt % 2 ==0 and cfg.TRAIN.EPOCH_MODEL_SAVE:
+            if epo_cnt % 2 == 0 and cfg.TRAIN.EPOCH_MODEL_SAVE:
                 pass
                 self.snapshot(sess, epo_cnt)
             if cfg.TRAIN.USE_VALID:
@@ -602,9 +658,7 @@ class cube_train(object):
 
                         valid_result = valid_cls_score_.argmax(axis=1)
                         one_hist = fast_hist(cube_label_gt, valid_result)
-                        if not math.isnan(one_hist[1, 1] / (one_hist[1, 1] + one_hist[0, 1])):
-                            if not math.isnan(one_hist[1, 1] / (one_hist[1, 1] + one_hist[1, 0])):
-                                hist += one_hist
+                        hist += one_hist
                         if cfg.TRAIN.VISUAL_VALID:
                             print 'Valid step: {:d}/{:d}'.format(data_idx + 1, valid_epoch_cnt)
                             print('    class bg precision = {:.3f}  recall = {:.3f}'.format(
@@ -616,11 +670,14 @@ class cube_train(object):
                         if data_idx % 20 == 0 and cfg.TRAIN.TENSORBOARD:
                             pass
                             # train_writer.add_summary(valid_result_, data_idx/20+epo_cnt*1000)
-
+                valid_extractor_int_ = sess.run(extractor_int)
+                extractor_occupy = valid_extractor_int_.sum() / valid_extractor_int_.size
                 precise_total = hist[1, 1] / (hist[1, 1] + hist[0, 1] + 1e-6)
                 recall_total = hist[1, 1] / (hist[1, 1] + hist[1, 0] + 1e-6)
                 valid_res = sess.run(valid_summary_op, feed_dict={epoch_cubic_recall: recall_total,
-                                                                  epoch_cubic_precise: precise_total})
+                                                                  epoch_cubic_precise: precise_total,
+                                                                  epoch_extractor_occupy: extractor_occupy
+                                                                  })
                 self.writer.add_summary(valid_res, epo_cnt + 1)
                 print 'Validation of epoch_{}: cubic_precision = {:.3f}  cubic_recall = {:.3f}' \
                     .format(epo_cnt + 1, precise_total, recall_total)
@@ -630,26 +687,26 @@ class cube_train(object):
 
 if __name__ == '__main__':
     arg = edict()
+    arg.lr = 0.02
     arg.imdb_type = 'kitti'
     arg.use_demo = True
-    arg.weights = None # '/home/hexindong/Videos/cubic-local/MODEL_weights/CUBE_ONLY_A1/CubeOnly_epoch_598.ckpt'
+    arg.weights = None#'/home/hexindong/Videos/cubic-local/MODEL_weights/tmp/CubeOnly_epoch_928.ckpt'
     arg.focal_loss = True
     arg.use_aug_data_method = True
     arg.positive_points_needed = 40
-    arg.epoch_iters = 600
+    arg.epoch_iters = 1000
 
     if socket.gethostname() == "hexindong":
-        arg.batch_size = 100
+        arg.batch_size = 80
         arg.multi_process = 4
     else:
-        import os
-        os.environ['CUDA_VISIBLE_DEVICES']='5'
+        os.environ['CUDA_VISIBLE_DEVICES'] = '9'
         arg.batch_size = 340
         arg.multi_process = 20
 
-    DataSet = data_load('/home/hexindong/DATASET/DATA_BOXES',arg,one_piece=True)
+    DataSet = data_load('/home/hexindong/DATASET/DATA_BOXES', arg, one_piece=True)
 
-    NetWork = net_build([50,64, 128, 128, 64, 2])
+    NetWork = net_build([32, 64, 128, 128, 64, 2])
 
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         writer = tf.summary.FileWriter(cfg.LOG_DIR, sess.graph, max_queue=1000, flush_secs=1)

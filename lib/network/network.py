@@ -40,6 +40,7 @@ class Network(object):
         self.layers = dict(inputs)
         self.trainable = trainable
         self.setup()
+        self.channel = 0
 
     def setup(self):
         raise NotImplementedError('Must be subclassed.')
@@ -447,12 +448,12 @@ class Network(object):
         return bi_bv,layer
 
     @layer
-    def cubic_cnn(self,input, name):
+    def cubic_cnn(self,input,channels, name):
         input = input[0]
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE) as scope:
-            batch_size = tf.shape(input)  # 5 numbers
-            cubic3dcnn = cubic(batch_size, [64, 128, 128, 64,2])
-            result = cubic3dcnn.apply(input)
+            shape_feature = self.shape_extractor(input,channels,name='ShapeExtractor')
+            cubic3dcnn = cubic(channels)
+            result = cubic3dcnn.apply(shape_feature)
         return result
 
     @layer
@@ -463,3 +464,41 @@ class Network(object):
             stack_cube = tf.py_func(vfe_cube_Gen, [lidar_points, rpn_3d_boxes, method], [tf.float32])
         return stack_cube
 
+    def shape_extractor(self, inputs,channel,name):
+        from tensorflow.python.ops import init_ops
+
+        def converter_grad(op, grad):
+            return grad * 25
+
+        def converter_op(kernel_w):
+            extractor_int_ = np.greater(kernel_w, 0.0).astype(np.float32)
+
+            return extractor_int_
+
+        def py_func(func, inp, Tout, stateful=True, name_=None, grad=None):
+            # Need to generate a unique name to avoid duplicates:
+            rnd_name = 'PyFuncGrad' + str(np.random.randint(0, 1E+8))
+
+            tf.RegisterGradient(rnd_name)(grad)  # see _MySquareGrad for grad example
+            g = tf.get_default_graph()
+            with g.gradient_override_map({"PyFunc": rnd_name}):
+                return tf.py_func(func, inp, Tout, stateful=stateful, name=name_)
+
+        def tf_extractor(x, name__=None):
+            with tf.name_scope(name__, "shape_extractor", [x]) as _name:
+                z = py_func(converter_op,
+                            [x],
+                            [tf.float32],
+                            name_=_name,
+                            grad=converter_grad)  # <-- here's the call to the gradient
+                return z[0]
+
+        with tf.variable_scope(name, reuse=tf.AUTO_REUSE) as scope:
+            extractor_weighs_float = tf.get_variable('extractor_float', shape=[3, 3, 3, 1, channel[0]],
+                                                     initializer=init_ops.variance_scaling_initializer)
+            extractor_int = tf_extractor(extractor_weighs_float, name__='extractor_int')
+            res = tf.nn.conv3d(inputs, extractor_int, strides=[1, 1, 1, 1, 1], padding='SAME',
+                               name='shape_feature')
+            out = tf.reshape(res, [-1, cfg.CUBIC_SIZE[0], cfg.CUBIC_SIZE[1], cfg.CUBIC_SIZE[2], channel[0]])
+
+        return out
