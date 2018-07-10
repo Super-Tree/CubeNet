@@ -41,6 +41,7 @@ class Network(object):
         self.trainable = trainable
         self.setup()
         self.channel = 0
+        self.watcher = 0
 
     def setup(self):
         raise NotImplementedError('Must be subclassed.')
@@ -452,6 +453,7 @@ class Network(object):
         input = input[0]
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE) as scope:
             shape_feature = self.shape_extractor(input,channels,name='ShapeExtractor')
+            self.watcher = shape_feature
             cubic3dcnn = cubic(channels)
             result = cubic3dcnn.apply(shape_feature)
         return result

@@ -35,13 +35,22 @@ class CubicNet_Test(object):
             # RNet_rpn_yaw_gt_delta = self.net.get_output('cubic_grid')[1]
             # RNet_rpn_yaw_pred_toshow = RNet_rpn_yaw_pred+RNet_rpn_yaw_gt_delta
             rpn_rois_3d = self.net.get_output('rpn_rois')[1]
-        with tf.name_scope('view_rpn_bv_tb'):
-            roi_bv = self.net.get_output('rpn_rois')[0]
-            data_bv = self.net.lidar_bv_data
-            image_rpn = tf.reshape(test_show_rpn_tf(data_bv,roi_bv), (1, 601, 601, -1))
-            tf.summary.image('lidar_bv_test', image_rpn)
 
+        with tf.name_scope('view_rpn_bv_tb'):
+            # roi_bv = self.net.get_output('rpn_rois')[0]
+            # data_bv = self.net.lidar_bv_data
+            # image_rpn = tf.reshape(test_show_rpn_tf(data_bv,roi_bv), (1, 601, 601, -1))
+            # tf.summary.image('lidar_bv_test', image_rpn)
+            feature = tf.reshape(tf.transpose(tf.reduce_sum(self.net.watcher[0],axis=-2),[2,0,1]),[-1,30,30,1])
+            tf.summary.image('shape_extractor_P1', feature,max_outputs=50)
+            # feature = tf.reshape(tf.transpose(tf.reduce_sum(self.net.watcher[1],axis=-1),[2,0,1]),[-1,30,30,1])
+            # tf.summary.image('shape_extractor_P2', feature,max_outputs=10)
+            # feature = tf.reshape(tf.transpose(tf.reduce_sum(self.net.watcher[-1],axis=-1),[2,0,1]),[-1,30,30,1])
+            # tf.summary.image('shape_extractor_N1', feature,max_outputs=3)
+            # feature = tf.reshape(tf.transpose(tf.reduce_sum(self.net.watcher[-2],axis=-1),[2,0,1]),[-1,30,30,1])
+            # tf.summary.image('shape_extractor_N2', feature,max_outputs=3)
             merged = tf.summary.merge_all()
+
         with tf.name_scope('load_weights'):
             print 'Loading pre-trained model weights from {:s}'.format(self.args.weights)
             self.net.load_weigths(self.args.weights, sess, self.saver)

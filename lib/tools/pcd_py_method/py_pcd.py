@@ -5,7 +5,7 @@ import copy
 import numpy as np
 import warnings
 import socket
-if socket.gethostname()=="hexindong":
+if socket.gethostname()=="szstdzcp0325":
     from tools.data_visualize import pcd_vispy, vispy_init
     vispy_init() # must before 'import lzf'
 import lzf

@@ -1,6 +1,6 @@
 import os
 import socket
-if socket.gethostname() == "hexindong":
+if socket.gethostname() == "szstdzcp0325":
     import vispy.app
     v = vispy.app.Canvas()
     from vispy.scene import visuals
@@ -14,7 +14,7 @@ from network.config import cfg
 
 from os.path import join as path_add
 
-if socket.gethostname()=="hexindong":
+if socket.gethostname()=="szstdzcp0325":
     import vispy.app
     v = vispy.app.Canvas()
     vispy.set_log_level('CRITICAL', match='-.-')
