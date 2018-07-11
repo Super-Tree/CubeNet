@@ -1,11 +1,3 @@
-# --------------------------------------------------------
-# Fast R-CNN
-# Copyright (c) 2015 Microsoft
-# Licensed under The MIT License [see LICENSE for details]
-# Written by Ross Girshick
-# --------------------------------------------------------
-
-"""Factory method for easily getting imdbs by name."""
 
 import cv2
 import re
@@ -989,25 +981,34 @@ if __name__ == '__main__':
     from sensor_msgs.msg import PointCloud
     from visualization_msgs.msg import MarkerArray,Marker
     from tools.data_visualize import Boxes_labels_Gen,PointCloud_Gen,pcd_vispy
-    arg = edict()
-    arg.method = 'train'
-    arg.imdb_type = 'kitti'
-    dataset = get_data(arg)
-    a = dataset.get_minibatch(0,name='train')
+    # arg = edict()
+    # arg.method = 'train'
+    # arg.imdb_type = 'kitti'
+    # dataset = get_data(arg)
+    # a = dataset.get_minibatch(0,name='train')
 
     rospy.init_node('rostensorflow')
     pub = rospy.Publisher('prediction', PointCloud, queue_size=1000)
     box_pub = rospy.Publisher('label_boxes', MarkerArray, queue_size=1000)
     rospy.loginfo("ROS begins ...")
 
+    # idx = 0
+    # while True:
+    #     print 'display frame:{}'.format(idx)
+    #     scans = dataset.get_minibatch(idx, name='train')
+    #     pointcloud = PointCloud_Gen(scans['lidar3d_data'])
+    #     # label_boxes = Boxes_labels_Gen(scans['gt_boxes_3d'],ns='GroundTruth')
+    #     # pcd_vispy(scans=scans['lidar3d_data'],boxes=scans['gt_boxes_3d'])
+    #     pub.publish(pointcloud)
+    #     # box_pub.publish(label_boxes)
+    #     idx += 1
     idx = 0
     while True:
-        print 'display frame:{}'.format(idx)
-        scans = dataset.get_minibatch(idx, name='train')
-        pointcloud = PointCloud_Gen(scans['lidar3d_data'])
-        # label_boxes = Boxes_labels_Gen(scans['gt_boxes_3d'],ns='GroundTruth')
-        # pcd_vispy(scans=scans['lidar3d_data'],boxes=scans['gt_boxes_3d'])
-        pub.publish(pointcloud)
-        # box_pub.publish(label_boxes)
-        idx += 1
+        prefix = '/home/likewise-open/SENSETIME/hexindong/DISK1/DATASET/velodyne_points/data/'
+        name = prefix +str(idx).zfill(10)+'.bin'
+        scan = np.fromfile(name,dtype=np.float32).reshape(-1,4)
 
+        pointcloud = PointCloud_Gen(scan)
+        pub.publish(pointcloud)
+
+        idx+=1
