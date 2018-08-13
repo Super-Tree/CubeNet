@@ -39,7 +39,7 @@ def parse_args():
 
     parser.add_argument('--epoch_iters', dest='epoch_iters',help='number of iterations to train',
                         default=100, type=int)
-    parser.add_argument('--imdb_type', dest='imdb_type',help='dataset to train on(sti/kitti)', choices=['kitti', 'sti'],
+    parser.add_argument('--imdb_type', dest='imdb_type',help='dataset to train on(kitti/hangzhou/sti)', choices=['kitti', 'hangzhou','sti'],
                         default='kitti', type=str)
 
     parser.add_argument('--useDemo', dest='useDemo',help='whether use continues frame demo',
@@ -97,13 +97,17 @@ def get_network(arguments,net_arg):
     if arguments.method == 'train':
         if arguments.imdb_type == 'kitti':
             return train_net(arguments,net_arg)
-        else:
+        elif arguments.imdb_type == 'sti':
             return train_net_sti(arguments)
+        else:
+            return train_net(arguments,net_arg)
     else:
         if arguments.imdb_type == 'kitti':
             return test_net(arguments,net_arg,trainable=False)
-        else:
+        elif arguments.imdb_type == 'sti':
             return test_net_sti(arguments)
+        else:
+            return test_net(arguments,net_arg,trainable=False)
             # print "Loading model from .meta ...."
             # return None
             # hxd: when testing,if we use the same graph,we needn't to reload the model,using .meta file to restore the graph
@@ -121,10 +125,14 @@ if __name__ == '__main__':
     if args.method == 'train':
         if args.imdb_type == 'kitti':
             network_training(network, data_set, args)
-        else:
+        elif args.imdb_type == 'sti':
             network_training_sti(network, data_set, args)
+        else:
+            network_training(network, data_set, args)
     elif args.method == 'test':
         if args.imdb_type == 'kitti':
             network_testing(network, data_set, args)
-        else:
+        elif args.imdb_type == 'sti':
             network_testing_sti(network, data_set, args)
+        else:
+            network_testing(network, data_set, args)

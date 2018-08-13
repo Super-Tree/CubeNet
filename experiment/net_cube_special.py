@@ -89,13 +89,16 @@ class data_load(object):
         return ret
 
     def eat_data_in_one_piece(self):
+        if not os.path.exists(path_add(self.path, 'data_in_one_piece')):
+            os.mkdir(path_add(self.path, 'data_in_one_piece'))
         TrainSet_POS_file_name = path_add(self.path, 'data_in_one_piece', 'TrainSet_POS.npy')
         TrainSet_NEG_file_name = path_add(self.path, 'data_in_one_piece', 'TrainSet_NEG.npy')
         ValidSet_POS_file_name = path_add(self.path, 'data_in_one_piece', 'ValidSet_POS.npy')
         ValidSet_NEG_file_name = path_add(self.path, 'data_in_one_piece', 'ValidSet_NEG.npy')
 
+        if not os.path.exists(path_add(self.path, 'filter_data_in_one_piece')):
+            os.mkdir(path_add(self.path, 'filter_data_in_one_piece'))
         info_file_name = path_add(self.path, 'filter_data_in_one_piece', 'information_about_files.npy')
-
         TrainSet_POS_filter_file_name = path_add(self.path, 'filter_data_in_one_piece', 'Filter_TrainSet_POS.npy')
         ValidSet_POS_filter_file_name = path_add(self.path, 'filter_data_in_one_piece', 'Filter_ValidSet_POS.npy')
         TrainSet_NEG_filter_file_name = path_add(self.path, 'filter_data_in_one_piece', 'Filter_TrainSet_NEG.npy')
@@ -104,9 +107,8 @@ class data_load(object):
         if os.path.exists(TrainSet_POS_filter_file_name) and os.path.exists(ValidSet_POS_filter_file_name) \
                 and os.path.exists(TrainSet_NEG_filter_file_name) and os.path.exists(ValidSet_NEG_filter_file_name) \
                 and os.path.exists(info_file_name):
-            print(darkyellow(
-                'Eating filtered data(Points more than {}) from npy zip file in folder:filter_data_in_one_piece ...'
-                    .format(np.load(info_file_name))))
+            print('Eating filtered data(Points more than {}) from npy zip file in folder:filter_data_in_one_piece ...'
+                    .format(darkyellow('['+str(np.load(info_file_name))+']')))
             self.TrainSet_POS = np.load(TrainSet_POS_filter_file_name)
             self.TrainSet_NEG = np.load(TrainSet_NEG_filter_file_name)
             self.ValidSet_POS = np.load(ValidSet_POS_filter_file_name)
@@ -117,9 +119,9 @@ class data_load(object):
             self.valid_positive_cube_cnt = self.ValidSet_POS.shape[0]
             self.valid_negative_cube_cnt = self.ValidSet_NEG.shape[0]
 
-            print(purple('Emmm,there are TP:{} TN:{} VP:{} VN:{} in my stomach.'.format(
-                self.TrainSet_POS.shape[0], self.TrainSet_NEG.shape[0], self.ValidSet_POS.shape[0],
-                self.ValidSet_NEG.shape[0], )))
+            print('  emmm,there are TP:{} TN:{} VP:{} VN:{} in my belly.'.format(
+                purple(str(self.TrainSet_POS.shape[0])),purple(str(self.TrainSet_NEG.shape[0])),
+                purple(str(self.ValidSet_POS.shape[0])),purple(str(self.ValidSet_NEG.shape[0])), ))
 
             return None
 
@@ -192,7 +194,7 @@ class data_load(object):
         self.valid_negative_cube_cnt = self.ValidSet_NEG.shape[0]
 
         print(green('Done! TrainPositive remain: {},ValidPositive remain: {} and has been saved').
-            format(self.TrainSet_POS.shape[0], self.ValidSet_POS.shape[0], ))
+              format(self.TrainSet_POS.shape[0], self.ValidSet_POS.shape[0], ))
 
     def sti_test(self, idx):
         from tools.pcd_py_method.py_pcd import point_cloud
@@ -346,21 +348,32 @@ class net_build(object):
 
 
 class cube_train(object):
-    def __init__(self, arg_, dataset, network, writer_):
+    def __init__(self, arg_, dataset, network):
         self.arg = arg_
         self.dataset = dataset
         self.network = network
-        self.saver = tf.train.Saver(max_to_keep=1000)
-        self.writer = writer_
+
         self.random_folder = cfg.RANDOM_STR
+        self.saver = None
+        self.writer=None
+        self.current_saver_path = None
+        self.training_record_init()
+
+    def training_record_init(self):
+        current_process_name_path = os.path.join(cfg.ROOT_DIR, 'process_record', self.arg.task_name, self.random_folder)
+        if not os.path.exists(current_process_name_path):
+            os.makedirs(current_process_name_path)
+        self.current_saver_path = current_process_name_path
+        os.system('cp %s %s' % (os.path.join(cfg.ROOT_DIR, 'experiment', 'net_cube_special.py'),
+                                current_process_name_path))  # bkp of model&args def
+        os.system('cp %s %s' % (os.path.join(cfg.ROOT_DIR,'lib','network', 'config.py'), current_process_name_path))
+
+        self.writer = tf.summary.FileWriter(current_process_name_path, sess.graph, max_queue=1000, flush_secs=1)
+        self.saver = tf.train.Saver(max_to_keep=1000)
+        print(cyan('System recorder assistant deploy.'))
 
     def snapshot(self, sess, epoch_cnt=0):
-        import os
-        output_dir = path_add(cfg.ROOT_DIR, 'output', self.random_folder)
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-        filename = os.path.join(output_dir, 'CubeOnly_epoch_{:d}'.format(epoch_cnt) + '.ckpt')
+        filename = os.path.join(self.current_saver_path, 'CubeOnly_epoch_{:d}'.format(epoch_cnt) + '.ckpt')
         self.saver.save(sess, filename)
         print 'Wrote snapshot to: {:s}'.format(filename)
 
@@ -563,9 +576,9 @@ class cube_train(object):
             sess.run(tf.global_variables_initializer())
             if self.arg.weights is not None:
                 self.network.load_weigths(self.arg.weights, sess, self.saver)
-                print 'Loading pre-trained model weights from {:s}'.format(self.arg.weights)
+                print 'Loading pre-trained model weights from {:s}'.format(red(self.arg.weights))
             else:
-                print red('The network will be re-trained from default initialization!')
+                print 'The network will be {} from default initialization!'.format(yellow('re-trained'))
         timer = Timer()
         if DEBUG:
             pass
@@ -573,7 +586,7 @@ class cube_train(object):
         cube_label_gt = np.concatenate((np.ones([self.arg.batch_size]), np.zeros([self.arg.batch_size]))).astype(
             np.int32)
         train_epoch_cnt = int(self.dataset.train_positive_cube_cnt / self.arg.batch_size / 2)
-        training_series = range(train_epoch_cnt)  # train_epoch_cnt
+        training_series = range(8)#range(train_epoch_cnt)  # train_epoch_cnt
         for epo_cnt in range(self.arg.epoch_iters):
             for data_idx in training_series:
                 iter = global_step.eval()
@@ -610,7 +623,8 @@ class cube_train(object):
                     predict_result = cube_probi_.argmax(axis=1)
                     one_train_hist = fast_hist(cube_label_gt, predict_result)
                     occupy_part = extractor_int_.sum() / extractor_int_.size
-                    print 'Training step: {:3d} loss: {:.4f} occupy: {}%({}) inference_time: {:.3f} '.format(iter,loss_, int(
+                    print 'Training step: {:3d} loss: {:.4f} occupy: {}%({}) inference_time: {:.3f} '.format(iter,
+                                                                                                             loss_, int(
                             occupy_part * 100), extractor_int_.sum(), timer.average_time)
                     # print('    class bg precision = {:.3f}  recall = {:.3f}'.format(
                     #     (one_train_hist[0, 0] / (one_train_hist[0, 0] + one_train_hist[1, 0] + 1e-6)),
@@ -690,26 +704,29 @@ if __name__ == '__main__':
     arg.lr = 0.02
     arg.imdb_type = 'kitti'
     arg.use_demo = True
-    arg.weights = None#'/home/hexindong/Videos/cubic-local/MODEL_weights/tmp/CubeOnly_epoch_928.ckpt'
+    arg.weights = None  # '/home/hexindong/Videos/cubic-local/MODEL_weights/tmp/CubeOnly_epoch_928.ckpt'
     arg.focal_loss = True
     arg.use_aug_data_method = True
     arg.positive_points_needed = 40
     arg.epoch_iters = 1000
+    arg.one_piece = True
+    arg.task_name = 'cube_2state_A0'
 
-    if socket.gethostname() == "hexindong":
+    if socket.gethostname() == "szstdzcp0325":
         arg.batch_size = 80
         arg.multi_process = 4
     else:
-        os.environ['CUDA_VISIBLE_DEVICES'] = '9'
+        os.environ['CUDA_VISIBLE_DEVICES'] = '0'
         arg.batch_size = 340
         arg.multi_process = 20
 
-    DataSet = data_load('/home/hexindong/DATASET/DATA_BOXES', arg, one_piece=True)
+    data_path = '/home/likewise-open/SENSETIME/hexindong/ProjectDL/cubic-local/DATASET/KITTI/object/box_car_only'
+    DataSet = data_load(data_path, arg, one_piece=arg.one_piece)
 
     NetWork = net_build([32, 64, 128, 128, 64, 2])
 
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-        writer = tf.summary.FileWriter(cfg.LOG_DIR, sess.graph, max_queue=1000, flush_secs=1)
-        task = cube_train(arg, DataSet, NetWork, writer)
+
+        task = cube_train(arg, DataSet, NetWork)
         task.training(sess)
 

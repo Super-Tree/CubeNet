@@ -8,7 +8,7 @@ _feat_stride = [8, 8]  # scale cnt of pool and stride
 trainable_auto = False  # control the head network whether to be trained in cubic net
 
 class train_net(Network):
-    def __init__(self, args,net_channel):
+    def __init__(self, args,net_channel=None):
         self.inputs = []
         self.channel = net_channel
         self.lidar3d_data = tf.placeholder(tf.float32, shape=[None, 4])

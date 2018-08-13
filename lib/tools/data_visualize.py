@@ -284,7 +284,7 @@ def pcd_vispy(scans=None,img=None, boxes=None, name=None, index=0,vis_size=(800,
     image = visuals.Image(data=img, method='auto')
     vb_img.camera = 'turntable'
     vb_img.camera.elevation = -90.0
-    vb_img.camera.center = (2100, -380, -500)
+    vb_img.camera.center = (1900, 160, -1300)
     vb_img.camera.azimuth = 0.0
     vb_img.camera.scale_factor = 1500
     vb_img.add(image)
@@ -438,6 +438,10 @@ def Boxes_labels_Gen(box_es,ns,frame_id='rslidar'):
         color = (0, radio, 0, 1)  # Green
         if _box[-1]==1:
             color_ = (1., 1., 0., 1)  # yellow
+        elif _box[-2]>0.8:
+            color_= (0,1.,1.,1.)# blue
+        elif _box[-2]>0.5:
+            color_= (0.,0.,0.,1.)# green
         else:
             color_ = color  # green
         if idx == 0:

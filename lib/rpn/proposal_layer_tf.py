@@ -237,6 +237,7 @@ def generate_rpn(rpn_cls_prob_reshape, rpn_bbox_pred, im_info, cfg_key, _feat_st
     bbox_deltas = rpn_bbox_pred
     if test_debug:
         print 'im_size: ({}, {})'.format(im_info[0], im_info[1])
+        print im_info
         print 'rpn_bbox_pred shape : {}'.format(rpn_bbox_pred.shape)
 
     # 1. Generate proposals from bbox deltas and shifted anchors

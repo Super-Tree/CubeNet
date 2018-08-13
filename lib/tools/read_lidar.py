@@ -1,7 +1,8 @@
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-
+from tools.pcd_py_method.py_pcd import point_cloud
+from tools.data_visualize import pcd_vispy
 def show_bv(i):
     root_dir = "/home/hexindong/DATASET/kittidataset/KITTI/object/train"
     velodyne = os.path.join(root_dir, "velodyne/")
@@ -36,9 +37,9 @@ def show_bv(i):
 
 
 def show_front():
-    root_dir = "/home/hexindong/DATASET/kittidataset/KITTI/object/train"
+    root_dir = "/home/likewise-open/SENSETIME/hexindong/ProjectDL/cubic-local/DATASET/KITTI/object/training"
     velodyne = os.path.join(root_dir, "velodyne/")
-    bird = os.path.join(root_dir, "lidar_bv_10x0.24/")
+    bird = os.path.join(root_dir, "lidar_bv/")
 
     for i in range(200):
         filename = velodyne + str(i).zfill(6) + ".bin"
@@ -121,10 +122,9 @@ def point_cloud_2_top(points,res=0.1,zres=0.3,side_range=(-30., 30.),fwd_range=(
     # y_max = int((fwd_range[1] - fwd_range[0]) / res)
     # im = np.zeros([y_max, x_max, n_slices], dtype=np.uint8)
     # im[-y_img, x_img, slice_indices] = pixel_values
-
-    for i, height in enumerate(np.arange(height_range[0], height_range[1], zres)):
-        z_filt = np.logical_and((z_points >= height),
-                                (z_points < height + zres))
+    height_array=np.arange(height_range[0], height_range[1], zres)
+    for i, height in enumerate(height_array):
+        z_filt = np.logical_and((z_points >= height),(z_points < height + zres))
         zfilter = np.logical_and(filter, z_filt)
         indices = np.argwhere(zfilter).flatten()
 
@@ -275,11 +275,58 @@ def point_cloud_to_panorama(points, v_res=0.42, h_res=0.35, v_fov=(-24.9, 2.0),
     img[y_img, x_img, 1] = scale_to_255(z_points, min=z_min, max=z_max)
     img[y_img, x_img, 2] = scale_to_255(r_points, min=r_min, max=r_max)
     return img
+def rotz(points,t):
+        ''' Rotation about the z-axis. '''
+        if len(points.shape)==2:
+            assert points.shape[-1]==4,'Input points shape is not [-1,4]'
+        else:
+            assert False, 'Input points shape is not [-1,4]'
+        c = np.cos(t)
+        s = np.sin(t)
+        R = np.array([[c, -s, 0,  0],
+                      [s, c,  0,  0],
+                      [0, 0,  1,  0],
+                      [0, 0, 0, 1.0]])
 
+        return np.dot(R, points.T).T
 
 if __name__ == '__main__':
-    while True:
-        idx = input('Type a new index: ')
-        show_bv(idx)
+    # while True:
+    #     idx = input('Type a new index: ')
+    #     show_bv(idx)
 
+    # root_dir = "/home/likewise-open/SENSETIME/hexindong/ProjectDL/cubic-local/DATASET/KITTI/object/training"
+    root_dir = "/home/likewise-open/SENSETIME/hexindong/ProjectDL/cubic-local/DATASET/Hangzhou/2018-07-06-16-21-48"
+    velodyne_path = os.path.join(root_dir, "HDL64")
+    bird = os.path.join(root_dir, "lidar_bv")
 
+    side_range = (-30., 30.)
+    fwd_range = (0., 60)
+    height_range = (-2, 0.4)
+    lidar_file_list=sorted(os.listdir(velodyne_path))
+
+    for i in range(len(lidar_file_list)):
+        # filename = velodyne + str(i).zfill(6) + ".bin"
+        filename = os.path.join(velodyne_path,lidar_file_list[i])
+        print("Processing: ", filename)
+        # scan = np.fromfile(filename, dtype=np.float32)
+        scan =point_cloud.from_path(filename).pc_data
+        scan.dtype=np.float32
+        scan = scan.reshape((-1, 4))
+        scan_rot = rotz(scan,-np.pi/2.)
+        scan_rot = scan_rot/np.array([1,1,1,255],dtype=np.float32)
+        # pcd_vispy(scans=scan_rot)
+        bird_view = point_cloud_2_top(scan_rot, res=0.1, zres=0.3,
+                                       side_range=side_range,  # left-most to right-most
+                                       fwd_range=fwd_range,  # back-most to forward-most
+                                       height_range=height_range)
+        bv_name=os.path.join(bird,lidar_file_list[i][:-4]+".npy")
+        np.save(bv_name,bird_view)
+
+    # test
+    filename = os.path.join(bird, lidar_file_list[3001][:-4]+".npy")
+    test = np.load(filename)
+
+    print(test.shape)
+    plt.imshow(test[:,:,8])
+    plt.show()

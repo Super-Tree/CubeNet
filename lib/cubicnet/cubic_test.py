@@ -60,7 +60,7 @@ class CubicNet_Test(object):
         timer = Timer()
         cubic_cls_score = tf.reshape(self.net.get_output('cubic_cnn'), [-1, 2])
 
-        for idx in range(self.epoch):
+        for idx in range(0,self.epoch,1):
             # index_ = input('Type a new index: ')
             blobs = self.dataset.get_minibatch(idx)
             feed_dict = {
@@ -72,9 +72,8 @@ class CubicNet_Test(object):
             run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
             run_metadata = tf.RunMetadata()
             timer.tic()
-            cubic_cls_score_,rpn_rois_3d_,summary = \
-                sess.run([cubic_cls_score,rpn_rois_3d,merged],
-                         feed_dict=feed_dict, options=run_options, run_metadata=run_metadata)
+            cubic_cls_score_,rpn_rois_3d_,summary = sess.run([cubic_cls_score,rpn_rois_3d,merged]
+                         ,feed_dict=feed_dict, options=run_options, run_metadata=run_metadata)
             timer.toc()
 
             if idx % 3 ==0 and cfg.TEST.DEBUG_TIMELINE:
@@ -92,8 +91,10 @@ class CubicNet_Test(object):
                 cubic_cls_value = cubic_cls_score_.argmax(axis=1)
 
                 if USE_ROS:
+                    import numpy as np
                     from tools.data_visualize import PointCloud_Gen,Boxes_labels_Gen,Image_Gen
                     pointcloud = PointCloud_Gen(scan)
+
                     label_boxes = Boxes_labels_Gen(rpn_rois_3d_, ns='Predict')
                     img_ros = Image_Gen(img)
                     pub.publish(pointcloud)

@@ -18,11 +18,13 @@ __C.NUM_CLASS = 2
 __C.DEFAULT_PADDING = 'SAME'
 __C.ROOT_DIR = osp.abspath(osp.join(osp.dirname(__file__), '..', '..'))
 
-if socket.gethostname()=="hexindong":
-    # __C.DATA_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'data_local'))
-     __C.DATA_DIR ="/home/hexindong/DATASET/kittidataset/KITTI/object"
+if socket.gethostname()=='szstdzcp0325':
+    __C.DATA_DIR = "/home/likewise-open/SENSETIME/hexindong/ProjectDL/cubic-local/DATASET/KITTI/object"
 else:
-    __C.DATA_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'data_server'))
+    __C.DATA_DIR ="/home/likewise-open/SENSETIME/hexindong/ProjectDL/CubeNet-server/DATASET/KITTI/object"
+
+__C.DATA_HANGZHOU_DIR =osp.join(__C.ROOT_DIR,'DATASET','Hangzhou','2018-07-06-16-21-48')
+
 
 __C.OUTPUT_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'output'))
 __C.LOG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'log'))
