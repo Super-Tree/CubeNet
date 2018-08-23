@@ -20,8 +20,10 @@ __C.ROOT_DIR = osp.abspath(osp.join(osp.dirname(__file__), '..', '..'))
 
 if socket.gethostname()=='szstdzcp0325':
     __C.DATA_DIR = "/home/likewise-open/SENSETIME/hexindong/ProjectDL/cubic-local/DATASET/KITTI/object"
+    __C.DATA_BOXES_DIR = "/home/likewise-open/SENSETIME/hexindong/ProjectDL/cubic-local/DATASET/KITTI/object/box_car_only"
 else:
-    __C.DATA_DIR ="/home/likewise-open/SENSETIME/hexindong/ProjectDL/CubeNet-server/DATASET/KITTI/object"
+    __C.DATA_DIR ="/mnt/lustre/hexindong/ProjectDL/CubeNet-server/DATASET/KITTI/object"
+    __C.DATA_BOXES_DIR = "/mnt/lustre/hexindong/ProjectDL/CubeNet-server/DATASET/KITTI/object/box_car_only"
 
 __C.DATA_HANGZHOU_DIR =osp.join(__C.ROOT_DIR,'DATASET','Hangzhou','2018-07-06-16-21-48')
 

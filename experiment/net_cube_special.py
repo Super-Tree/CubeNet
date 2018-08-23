@@ -3,7 +3,7 @@ import _init_paths
 from numpy import random
 import os
 from os.path import join as path_add
-import math
+import argparse
 import numpy as np
 import tensorflow as tf
 from tools.timer import Timer
@@ -60,6 +60,8 @@ class data_load(object):
 
     def get_minibatch(self, idx_array, data_type='train', classify='positive'):
         one_piece = self.load_all_data
+        need_check=False
+        zeros_start=0
         if one_piece:
             if data_type == 'train' and classify == 'positive':
                 extractor = self.TrainSet_POS
@@ -70,20 +72,38 @@ class data_load(object):
             else:
                 extractor = self.ValidSet_NEG
             ret = extractor[idx_array].reshape(-1, cfg.CUBIC_SIZE[0], cfg.CUBIC_SIZE[1], cfg.CUBIC_SIZE[2], 1)
-        else:
+        else:  # TODO:hxd: add filter when using mode: Not one piece
             if data_type == 'train':
                 file_prefix = path_add(self.path, 'KITTI_TRAIN_BOX')
+                up_limit=self.train_positive_cube_cnt
             else:
                 file_prefix = path_add(self.path, 'KITTI_VALID_BOX')
-
+                up_limit=self.valid_positive_cube_cnt
             if classify == 'positive':
                 file_prefix = path_add(file_prefix, 'POSITIVE')
+                need_check=True
             else:
                 file_prefix = path_add(file_prefix, 'NEGATIVE')
 
             res = []
             for idx in idx_array:
                 data = np.load(path_add(file_prefix, str(idx).zfill(6) + '.npy'))
+                if need_check:
+                    if data.sum()<self.arg.positive_points_needed:
+                        if (idx_array[-1]+1)<up_limit:
+                            idx_array.append(idx_array[-1]+1)
+                            if data_type == 'train':
+                                self.dataset_TrainP_record=idx_array[-1]+1
+                            else:
+                                self.dataset_ValidP_record = idx_array[-1]+1
+                        else:
+                            idx_array.append(zeros_start)
+                            zeros_start+=1
+                            if data_type == 'train':
+                                self.dataset_TrainP_record=zeros_start
+                            else:
+                                self.dataset_ValidP_record=zeros_start
+                        continue
                 res.append(data)
             ret = np.array(res, dtype=np.uint8).reshape(-1, cfg.CUBIC_SIZE[0], cfg.CUBIC_SIZE[1], cfg.CUBIC_SIZE[2], 1)
         return ret
@@ -108,7 +128,7 @@ class data_load(object):
                 and os.path.exists(TrainSet_NEG_filter_file_name) and os.path.exists(ValidSet_NEG_filter_file_name) \
                 and os.path.exists(info_file_name):
             print('Eating filtered data(Points more than {}) from npy zip file in folder:filter_data_in_one_piece ...'
-                    .format(darkyellow('['+str(np.load(info_file_name))+']')))
+                  .format(darkyellow('[' + str(np.load(info_file_name)) + ']')))
             self.TrainSet_POS = np.load(TrainSet_POS_filter_file_name)
             self.TrainSet_NEG = np.load(TrainSet_NEG_filter_file_name)
             self.ValidSet_POS = np.load(ValidSet_POS_filter_file_name)
@@ -120,20 +140,20 @@ class data_load(object):
             self.valid_negative_cube_cnt = self.ValidSet_NEG.shape[0]
 
             print('  emmm,there are TP:{} TN:{} VP:{} VN:{} in my belly.'.format(
-                purple(str(self.TrainSet_POS.shape[0])),purple(str(self.TrainSet_NEG.shape[0])),
-                purple(str(self.ValidSet_POS.shape[0])),purple(str(self.ValidSet_NEG.shape[0])), ))
+                purple(str(self.TrainSet_POS.shape[0])), purple(str(self.TrainSet_NEG.shape[0])),
+                purple(str(self.ValidSet_POS.shape[0])), purple(str(self.ValidSet_NEG.shape[0])), ))
 
             return None
 
         if os.path.exists(TrainSet_POS_file_name) and os.path.exists(TrainSet_NEG_file_name) \
                 and os.path.exists(ValidSet_POS_file_name) and os.path.exists(ValidSet_NEG_file_name):
-            print(blue('Let`s eating exiting data !'))
+            print(blue('Let`s eating exiting data(without filter) !'))
             self.TrainSet_POS = np.load(TrainSet_POS_file_name)
             self.TrainSet_NEG = np.load(TrainSet_NEG_file_name)
             self.ValidSet_POS = np.load(ValidSet_POS_file_name)
             self.ValidSet_NEG = np.load(ValidSet_NEG_file_name)
         else:
-            print(darkyellow('Let`s eating raw data !'))
+            print(darkyellow('Let`s eating raw data onr by one !'))
             train_pos_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_TRAIN_BOX', 'POSITIVE')))
             train_neg_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_TRAIN_BOX', 'NEGATIVE')))
             valid_pos_name_list = sorted(os.listdir(path_add(self.path, 'KITTI_VALID_BOX', 'POSITIVE')))
@@ -285,9 +305,11 @@ class net_build(object):
             return grad * 25
 
         def converter_op(kernel_w):
-            extractor_int = np.greater(kernel_w, 0.0).astype(np.float32)
+            kernel_w_int = np.zeros_like(kernel_w, dtype=np.float32)
+            extractor_int_pos = np.greater(kernel_w, 0.11).astype(np.float32)
+            extractor_int_neg = np.less(kernel_w, -0.11).astype(np.float32) * -1.0
 
-            return extractor_int
+            return kernel_w_int + extractor_int_pos + extractor_int_neg
 
         def py_func(func, inp, Tout, stateful=True, name=None, grad=None):
             # Need to generate a unique name to avoid duplicates:
@@ -346,6 +368,11 @@ class net_build(object):
                     except ValueError:
                         print "    Ignore variable:" + key
 
+    def extractor_init(self):
+        # shape = [3, 3, 3, 1, self.channel[0]
+        # self.init_values=np.random.randn()
+        pass
+
 
 class cube_train(object):
     def __init__(self, arg_, dataset, network):
@@ -355,7 +382,7 @@ class cube_train(object):
 
         self.random_folder = cfg.RANDOM_STR
         self.saver = None
-        self.writer=None
+        self.writer = None
         self.current_saver_path = None
         self.training_record_init()
 
@@ -366,7 +393,7 @@ class cube_train(object):
         self.current_saver_path = current_process_name_path
         os.system('cp %s %s' % (os.path.join(cfg.ROOT_DIR, 'experiment', 'net_cube_special.py'),
                                 current_process_name_path))  # bkp of model&args def
-        os.system('cp %s %s' % (os.path.join(cfg.ROOT_DIR,'lib','network', 'config.py'), current_process_name_path))
+        os.system('cp %s %s' % (os.path.join(cfg.ROOT_DIR, 'lib', 'network', 'config.py'), current_process_name_path))
 
         self.writer = tf.summary.FileWriter(current_process_name_path, sess.graph, max_queue=1000, flush_secs=1)
         self.saver = tf.train.Saver(max_to_keep=1000)
@@ -532,7 +559,7 @@ class cube_train(object):
         with tf.name_scope('train_cubic'):
             extractor_int = self.network.extractor_int
             extractor_float = self.network.extractor_weighs_float
-
+            extractor_outs=self.network.extractor_outs#(160, 30, 30, 15, 32)
             # extractor_F_grad = tf.gradients(loss, extractor_float)
             # extractor_Int_grad = tf.gradients(loss, extractor_int)
             # conv1_grad = tf.gradients(loss, self.network.conv1)
@@ -540,8 +567,21 @@ class cube_train(object):
             # conv3_grad = tf.gradients(loss, self.network.conv3)
             # fc1_grad = tf.gradients(loss, self.network.fc1)
             # fc2_grad = tf.gradients(loss, self.network.fc2)
+            watch_data_idx=0
+            inputs_cube=tf.reshape(tf.reduce_sum(tf.squeeze(self.network.cube_input[watch_data_idx,...]),axis=-1,keep_dims=True),[-1,30,30,1])
+            tf.summary.image('extractor_int', tf.reshape(extractor_int, [1, 27, -1, 1]))
+            data0_kernel0_outs=tf.transpose(tf.reshape(extractor_outs[0,:,:,2,:],[1,30,30,-1]),[3,1,2,0])
+            data0_kernel1_outs=tf.transpose(tf.reshape(extractor_outs[1,:,:,2,:],[1,30,30,-1]))
+            data0_kernel2_outs=tf.transpose(tf.reshape(extractor_outs[2,:,:,2,:],[1,30,30,-1]))
+            data0_kernel3_outs=tf.transpose(tf.reshape(extractor_outs[3,:,:,2,:],[1,30,30,-1]))
 
-            tf.summary.image('extractor_int', tf.reshape(extractor_int, [-1, 27, 32, 1]))
+            tf.summary.image('extractor_inputs_cube', inputs_cube)
+            tf.summary.image('extractor_outs1', data0_kernel0_outs,max_outputs=50)
+            # tf.summary.image('extractor_outs2', data0_kernel1_outs,max_outputs=50)
+            # tf.summary.image('extractor_outs3', data0_kernel2_outs,max_outputs=50)
+            # tf.summary.image('extractor_outs2', data0_kernel3_outs,max_outputs=50)
+
+            # tf.summary.image('extractor_two', tf.reshape(tf.transpose(extractor_int),[32,9,3,1]))
             # tf.summary.image('extractor_float', tf.reshape(extractor_float, [-1, 27, 32, 1]))
             # tf.summary.image('conv1_kernel', tf.reshape(self.network.conv1[0], [-1, 27, 32, 1]), max_outputs=3)
             # tf.summary.image('conv2_kernel', tf.reshape(self.network.conv2[0], [-1, 27, 64, 1]), max_outputs=3)
@@ -586,7 +626,7 @@ class cube_train(object):
         cube_label_gt = np.concatenate((np.ones([self.arg.batch_size]), np.zeros([self.arg.batch_size]))).astype(
             np.int32)
         train_epoch_cnt = int(self.dataset.train_positive_cube_cnt / self.arg.batch_size / 2)
-        training_series = range(8)#range(train_epoch_cnt)  # train_epoch_cnt
+        training_series = range(train_epoch_cnt)  # range(train_epoch_cnt)  # train_epoch_cnt
         for epo_cnt in range(self.arg.epoch_iters):
             for data_idx in training_series:
                 iter = global_step.eval()
@@ -599,9 +639,13 @@ class cube_train(object):
                 time1 = timer.average_time
 
                 timer.tic()
-                data_aug = self.cube_augmentation(data_batch, aug_data=True, DEBUG=False)
+                if self.arg.use_aug_data_method:
+                    data_aug = self.cube_augmentation(data_batch, aug_data=True, DEBUG=False)
+                else:
+                    data_aug = data_batch
                 timer.toc()
                 time2 = timer.average_time
+
                 if DEBUG:
                     a = data_batch[data_idx].sum()
                     b = data_batch[data_idx].sum()
@@ -614,44 +658,46 @@ class cube_train(object):
                              self.network.cube_label: cube_label_gt,
                              }
                 timer.tic()
-                extractor_int_, cube_probi_, cube_label_, loss_, merge_op_, _ = \
-                    sess.run([extractor_int, cube_probi, cube_label, loss, merged_op,
+                extractor_outs_,extractor_int_, extractor_float_, cube_probi_, cube_label_, loss_, merge_op_, _ = \
+                    sess.run([extractor_outs, extractor_int, extractor_float, cube_probi, cube_label, loss, merged_op,
                               train_op], feed_dict=feed_dict)
                 timer.toc()
-
+                # print extractor_outs_.shape,"Look here!"
                 if iter % 4 == 0:
                     predict_result = cube_probi_.argmax(axis=1)
                     one_train_hist = fast_hist(cube_label_gt, predict_result)
-                    occupy_part = extractor_int_.sum() / extractor_int_.size
-                    print 'Training step: {:3d} loss: {:.4f} occupy: {}%({}) inference_time: {:.3f} '.format(iter,
-                                                                                                             loss_, int(
-                            occupy_part * 100), extractor_int_.sum(), timer.average_time)
+                    occupy_part_pos = (extractor_int_.reshape(-1) == 1.0).astype(float).sum() / extractor_int_.size
+                    occupy_part_neg = (extractor_int_.reshape(-1) == -1.0).astype(float).sum() / extractor_int_.size
+                    print 'Training step: {:3d} loss: {:.4f} occupy: +{}% vs -{}% inference_time: {:.3f} '. \
+                        format(iter, loss_, int(occupy_part_pos * 100), int(occupy_part_neg * 100), timer.average_time)
                     # print('    class bg precision = {:.3f}  recall = {:.3f}'.format(
                     #     (one_train_hist[0, 0] / (one_train_hist[0, 0] + one_train_hist[1, 0] + 1e-6)),
                     #     (one_train_hist[0, 0] / (one_train_hist[0, 0] + one_train_hist[0, 1] + 1e-6))))
                     print '    class car precision = {:.3f}  recall = {:.3f}'.format(
                         (one_train_hist[1, 1] / (one_train_hist[1, 1] + one_train_hist[0, 1] + 1e-6)),
                         (one_train_hist[1, 1] / (one_train_hist[1, 1] + one_train_hist[1, 0] + 1e-6))), '\n'
-                    if socket.gethostname() == "hexindong" and False:
+                    if socket.gethostname() == "szstdzcp0325" and False:
                         with self.printoptions(precision=2, suppress=False, linewidth=10000):
                             print 'scores: {}'.format(cube_probi_[:, 1])
                             print 'divine:', str(predict_result)
                             print 'labels:', str(cube_label_), '\n'
 
-                if iter % 2 == 0 and cfg.TRAIN.TENSORBOARD:
+                if iter % 1 == 0 and cfg.TRAIN.TENSORBOARD:
                     pass
                     self.writer.add_summary(merge_op_, iter)
-                if (iter % 3000 == 0 and cfg.TRAIN.DEBUG_TIMELINE) or iter == 200:
-                    run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-                    run_metadata = tf.RunMetadata()
-                    _ = sess.run([cube_score], feed_dict=feed_dict, options=run_options, run_metadata=run_metadata)
-                    # chrome://tracing
-                    trace = timeline.Timeline(step_stats=run_metadata.step_stats)
-                    trace_file = open(cfg.LOG_DIR + '/' + 'training-step-' + str(iter).zfill(7) + '.ctf.json', 'w')
-                    trace_file.write(trace.generate_chrome_trace_format(show_memory=False))
-                    trace_file.close()
 
-            if epo_cnt % 2 == 0 and cfg.TRAIN.EPOCH_MODEL_SAVE:
+                if (iter % 3000 == 0 and cfg.TRAIN.DEBUG_TIMELINE) or iter == 200:
+                    if socket.gethostname() == "szstdzcp0325":
+                        run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                        run_metadata = tf.RunMetadata()
+                        _ = sess.run([cube_score], feed_dict=feed_dict, options=run_options, run_metadata=run_metadata)
+                        # chrome://tracing
+                        trace = timeline.Timeline(step_stats=run_metadata.step_stats)
+                        trace_file = open(cfg.LOG_DIR + '/' + 'training-step-' + str(iter).zfill(7) + '.ctf.json', 'w')
+                        trace_file.write(trace.generate_chrome_trace_format(show_memory=False))
+                        trace_file.close()
+
+            if epo_cnt % 10 == 0 and cfg.TRAIN.EPOCH_MODEL_SAVE:
                 pass
                 self.snapshot(sess, epo_cnt)
             if cfg.TRAIN.USE_VALID:
@@ -699,28 +745,49 @@ class cube_train(object):
         print yellow('Training process has done, enjoy every day !')
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Train a CombineNet network')
+    parser.add_argument('--lr', dest='lr', default=0.02, type=float)
+    parser.add_argument('--epoch_iters', dest='epoch_iters', default=1000, type=int)
+    parser.add_argument('--imdb_type', dest='imdb_type', choices=['kitti', 'hangzhou'], default='kitti', type=str)
+    parser.add_argument('--use_demo', action='store_true')
+    parser.add_argument('--focal_loss', action='store_true')
+    parser.add_argument('--use_aug_data_method', action='store_true')
+    parser.add_argument('--one_piece', action='store_true')
+    parser.add_argument('--task_name', action='store_true')
+    parser.add_argument('--weights', dest='weights', default=None, type=str)
+
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
+    # args_input = parse_args()
+
     arg = edict()
     arg.lr = 0.02
+    arg.epoch_iters = 1000
     arg.imdb_type = 'kitti'
     arg.use_demo = True
     arg.weights = None  # '/home/hexindong/Videos/cubic-local/MODEL_weights/tmp/CubeOnly_epoch_928.ckpt'
     arg.focal_loss = True
     arg.use_aug_data_method = True
     arg.positive_points_needed = 40
-    arg.epoch_iters = 1000
-    arg.one_piece = True
-    arg.task_name = 'cube_2state_A0'
+    arg.one_piece = False
+    arg.task_name = 'cube_3state_A0_analysis'
 
     if socket.gethostname() == "szstdzcp0325":
-        arg.batch_size = 80
+        arg.batch_size = 20
         arg.multi_process = 4
     else:
         os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-        arg.batch_size = 340
+        arg.batch_size = 40
         arg.multi_process = 20
 
-    data_path = '/home/likewise-open/SENSETIME/hexindong/ProjectDL/cubic-local/DATASET/KITTI/object/box_car_only'
+    if not socket.gethostname() == "szstdzcp0325":
+        data_path = '/mnt/lustre/hexindong/ProjectDL/CubeNet-server/DATASET/KITTI/object/box_car_only'
+    else:
+        data_path='/home/likewise-open/SENSETIME/hexindong/ProjectDL/cubic-local/DATASET/KITTI/object/box_car_only'
+
     DataSet = data_load(data_path, arg, one_piece=arg.one_piece)
 
     NetWork = net_build([32, 64, 128, 128, 64, 2])
