@@ -488,6 +488,8 @@ class dataset_KITTI_test(object):  # read txt files one by one
                 self.prefix_tmp = 10
             elif arguments.DemoChoice == 'drive_0015':
                 self.prefix_tmp = 10
+            else:
+                self.prefix_tmp = 10
         else:
             self._data_path = osp.join(cfg.DATA_DIR, 'testing')  # data path
 
