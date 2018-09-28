@@ -116,7 +116,10 @@ def box_np_view(data1,data2 = None):
 
 if __name__ == '__main__':
     # network_training()
-    # path = '/home/likewise-open/SENSETIME/hexindong/DISK1/DATASET/KITTI/object/box_car_only/train/POSITIVE'
+    box_path = '/home/likewise-open/SENSETIME/hexindong/ProjectDL/cubic-local/DATASET/KITTI/object/box_car_only/KITTI_VALID_BOX/POSITIVE'
+    for i in range(200):
+        box_view(box_path, i+4, size=1)
+
     path = '/home/likewise-open/SENSETIME/hexindong/DISK1/DATASET/KITTI/object/box_car_only/valid/POSITIVE'
     list_name=sorted(os.listdir(path))
     cnt_array=[]
@@ -136,7 +139,7 @@ if __name__ == '__main__':
     plt.rcParams['axes.unicode_minus'] = False
     print(cnt_array_np.max())
     # plt.style.use('ggplot')
-    # 绘图：乘客年龄的频数直方图
+
     cnt_array_np[cnt_array_np>599]=599
     plt.hist(cnt_array_np,  # 绘图数据
              range=(0,600),

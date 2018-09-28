@@ -49,7 +49,7 @@ class network_testing_sti(object):
             run_metadata = tf.RunMetadata()
             timer.tic()
             cubic_cls_score_,rpn_3d_,summary = \
-                sess.run([cubic_cls_score,rpn_3d,merged],
+                sess.run([cubic_cls_score, rpn_3d, merged],
                          feed_dict=feed_dict, options=run_options, run_metadata=run_metadata)
             timer.toc()
             cubic_result = cubic_cls_score_.argmax(axis=1)

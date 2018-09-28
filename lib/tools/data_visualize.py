@@ -59,18 +59,24 @@ def box3d_2conner(box,rot):
 
     return vertices[0],vertices[1],vertices[2],vertices[3],vertices[4],vertices[5],vertices[6],vertices[7],
 def boxary2dic(gt_box3d):
-    # gt_box3d: (x1,y1,z1),(x2,y2,z2),cls,yaw
+    # gt_box3d: (x1,y1,z1),(x2,y2,z2),cls_score,yaw,[type1,type2]
     boxes=dict({})
     if len(gt_box3d.shape)==1:
         gt_box3d=gt_box3d.reshape(-1,gt_box3d.shape[0])
     boxes["center"]= gt_box3d[:,0:3]
     boxes["size"]  = gt_box3d[:,3:6]
-    boxes["score"]  = gt_box3d[:,6:7]
-    boxes["cls_rpn"]  = np.ones([gt_box3d.shape[0],1],dtype=np.float32)
-    boxes["cls_cube"]  = np.ones([gt_box3d.shape[0],1],dtype=np.float32)
+    boxes["score"] = gt_box3d[:,6:7]
     boxes["yaw"]   = gt_box3d[:,7:8]
 
+    if gt_box3d.shape[0]>8:
+        boxes["cls_rpn"]  = gt_box3d[:,8:9]
+        boxes["cls_cube"] =gt_box3d[:,9:10]
+    else:
+        boxes["cls_rpn"]  = np.ones([gt_box3d.shape[0],1],dtype=np.float32)
+        boxes["cls_cube"]  = np.ones([gt_box3d.shape[0],1],dtype=np.float32)
+
     return boxes
+
 def lidar_3d_to_corners(pts_3D):
     """
     convert pts_3D_lidar (x, y, z, l, w, h) to
@@ -239,6 +245,9 @@ class pcd_vispy_client(object):# TODO: qt-client TO BE RE-WRITE
                 self.input_data(scans,img,boxes_,index,save_img,no_gt)
                 vispy.app.run()
                 a =[]
+def dic2array(label):
+
+    return np.hstack((label['gt_classes'].reshape(-1,1),label['boxes_3D'],-1*(label['ry'].reshape(-1,1)+np.pi/2.)))
 
 def pcd_vispy(scans=None,img=None, boxes=None, name=None, index=0,vis_size=(800, 600),save_img=False,visible=True,multi_vis=False,point_size=0.02):
     if multi_vis:
@@ -275,7 +284,6 @@ def pcd_vispy(scans=None,img=None, boxes=None, name=None, index=0,vis_size=(800,
             scatter.set_data(pos, edge_width=0, face_color=(0, 1, 1, 1), size=point_size, scaling=True)
             vb.add(scatter)
 
-
     axis = visuals.XYZAxis()
     vb.add(axis)
 
@@ -297,7 +305,7 @@ def pcd_vispy(scans=None,img=None, boxes=None, name=None, index=0,vis_size=(800,
         for k in range(boxes_cnt):
             radio = max(boxes["score"][k] - 0.5, 0.005)*2.0
             color = (0, radio, 0, 1)  # Green
-            if boxes["cls_rpn"][k] == 4:  #  gt boxes
+            if boxes["cls_rpn"][k] == 4:  # gt boxes
                 i = i + 1
                 vsp_box = visuals.Box(depth=boxes["size"][k][0],width=boxes["size"][k][1],  height=boxes["size"][k][2], color=(0.3, 0.4, 0.0, 0.06),edge_color='pink')
                 mesh_box = vsp_box.mesh.mesh_data
@@ -344,6 +352,95 @@ def pcd_vispy(scans=None,img=None, boxes=None, name=None, index=0,vis_size=(800,
         vispy.app.run()
 
     return canvas
+def pcd_vispy_standard(scans=None,img=None, boxes=None, name=None, index=0,vis_size=(800, 600),save_img=False,visible=True,multi_vis=False,point_size=0.02,lidar_view_set=None):
+    if multi_vis:
+        canvas = vispy.scene.SceneCanvas(title=name, keys='interactive', size=vis_size,show=True)
+    else:
+        canvas = vispy.scene.SceneCanvas(title=name, keys='interactive', size=vis_size,show=visible)
+    grid = canvas.central_widget.add_grid()
+    vb = grid.add_view(row=0, col=0, row_span=2)
+    vb_img = grid.add_view(row=1, col=0)
+    if lidar_view_set is None:
+        vb.camera = 'turntable'
+        vb.camera.elevation = 90  # 21.0
+        vb.camera.center = (6.5, -0.5, 9.0)
+        vb.camera.azimuth = -90  # -75.5
+        vb.camera.scale_factor = 63  # 32.7
+    else:
+        vb.camera = 'turntable'
+        vb.camera.elevation = lidar_view_set['elevation']  # 21.0
+        vb.camera.center = lidar_view_set['center']
+        vb.camera.azimuth = lidar_view_set['azimuth']
+        vb.camera.scale_factor = lidar_view_set['scale_factor']
+
+    if scans is not None:
+        if not isinstance(scans, list):
+            pos = scans[:, :3]
+            scatter = visuals.Markers()
+            scatter.set_gl_state('translucent', depth_test=False)
+            scatter.set_data(pos, edge_width=0, face_color=(1, 1, 1, 1), size=point_size, scaling=True)
+            vb.add(scatter)
+        else:
+            pos = scans[0][:, :3]
+            scatter = visuals.Markers()
+            scatter.set_gl_state('translucent', depth_test=False)
+            scatter.set_data(pos, edge_width=0, face_color=(1, 1, 1, 1), size=point_size, scaling=True)
+            vb.add(scatter)
+
+            pos = scans[1][:, :3]
+            scatter = visuals.Markers()
+            scatter.set_gl_state('translucent', depth_test=False)
+            scatter.set_data(pos, edge_width=0, face_color=(0, 1, 1, 1), size=0.1, scaling=True)
+            vb.add(scatter)
+
+    axis = visuals.XYZAxis()
+    vb.add(axis)
+
+    if img is None:
+        img=np.zeros(shape=[1,1,3],dtype=np.float32)
+    image = visuals.Image(data=img, method='auto')
+    vb_img.camera = 'turntable'
+    vb_img.camera.elevation = -90.0
+    vb_img.camera.center = (1900, 160, -1300)
+    vb_img.camera.azimuth = 0.0
+    vb_img.camera.scale_factor = 1500
+    vb_img.add(image)
+
+    if boxes is not None:
+        if len(boxes.shape)==1:
+            boxes=boxes.reshape(-1,boxes.shape[0])
+        # one box: type,xyz,lwh,yaw,[score,reserve1,reserve2]
+        for box in boxes:
+            if box[0]== 1:  # type:car
+                vb.add(line_box_stand(box, color="yellow"))
+            elif box[0]== 2: # type:Perdestrain
+                vb.add(line_box_stand(box, color="red"))
+            elif box[0]== 3: # type:Cyclist
+                vb.add(line_box_stand(box, color="blue"))
+            elif box[0] == 4:  # type:Van
+                vb.add(line_box_stand(box, color="pink"))
+            else:
+                vb.add(line_box_stand(box, color="green"))
+
+    if save_img:
+        folder = path_add(cfg.TEST_RESULT, cfg.RANDOM_STR)
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        fileName = path_add(folder,str(index).zfill(6)+'.png')
+        res = canvas.render(bgcolor='black')[:,:,0:3]
+        vispy_file.write_png(fileName, res)
+
+    @canvas.connect
+    def on_key_press(ev):
+        if ev.key.name in '+=':
+            a = vb.camera.get_state()
+        print(a)
+
+    if visible:
+        pass
+        vispy.app.run()
+
+    return canvas
 
 def box_rot_trans(vertices, rotation,translation):
     # points: numpy array;translation: moving scalar which should be small
@@ -368,6 +465,13 @@ def vispy_init():
 def line_box(box_center,box_size,rot,color=(0, 1, 0, 0.1)):
     box = np.array([box_center[0],box_center[1],box_center[2],box_size[1],box_size[0],box_size[2]],dtype=np.float32)#box_size[1] #TODO:just for view
     p0, p1, p2, p3, p4, p5, p6, p7=box3d_2conner(box,rot)
+    pos = np.vstack((p0,p1,p2,p3,p0,p4,p5,p6,p7,p4,p5,p1,p2,p6,p7,p3))
+    lines = visuals.Line(pos=pos, connect='strip', width=1, color=color, antialias=True,method='gl')
+
+    return lines
+def line_box_stand(box,color=(0, 1, 0, 0.1)):
+    box_np = np.array([box[1],box[2],box[3],box[4],box[5],box[6]],dtype=np.float32)
+    p0, p1, p2, p3, p4, p5, p6, p7=box3d_2conner(box_np,box[7])  # box : x,y,z,l,w,h,rot
     pos = np.vstack((p0,p1,p2,p3,p0,p4,p5,p6,p7,p4,p5,p1,p2,p6,p7,p3))
     lines = visuals.Line(pos=pos, connect='strip', width=1, color=color, antialias=True,method='gl')
 

@@ -625,7 +625,7 @@ class cube_train(object):
             vispy_init()
         cube_label_gt = np.concatenate((np.ones([self.arg.batch_size]), np.zeros([self.arg.batch_size]))).astype(
             np.int32)
-        train_epoch_cnt = int(self.dataset.train_positive_cube_cnt / self.arg.batch_size / 2)
+        train_epoch_cnt = int(self.dataset.train_positive_cube_cnt / self.arg.batch_size)
         training_series = range(train_epoch_cnt)  # range(train_epoch_cnt)  # train_epoch_cnt
         for epo_cnt in range(self.arg.epoch_iters):
             for data_idx in training_series:
@@ -704,7 +704,7 @@ class cube_train(object):
                 with tf.name_scope('valid_cubic_' + str(epo_cnt + 1)):
                     print 'Valid the net at the end of epoch_{} ...'.format(epo_cnt + 1)
                     hist = np.zeros((cfg.NUM_CLASS, cfg.NUM_CLASS), dtype=np.float32)
-                    valid_epoch_cnt = int(self.dataset.valid_positive_cube_cnt / self.arg.batch_size / 2)
+                    valid_epoch_cnt = int(self.dataset.valid_positive_cube_cnt / self.arg.batch_size)
                     for data_idx in range(valid_epoch_cnt):
                         series = self.train_series_Gen(self.arg.batch_size, 'valid')
                         data_batchP = self.dataset.get_minibatch(series[0], data_type='valid', classify='positive')

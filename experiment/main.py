@@ -120,7 +120,7 @@ if __name__ == '__main__':
 
     data_set = get_data(args)  # load  dataset
 
-    network = get_network(args,[32,64,128,128,64,2])  # load network model
+    network = get_network(args,[64,64,128,128,64,10])  # load network model
 
     if args.method == 'train':
         if args.imdb_type == 'kitti':

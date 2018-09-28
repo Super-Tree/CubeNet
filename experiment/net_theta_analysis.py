@@ -107,7 +107,7 @@ class CubicNet_Train(object):
                                             translation=[0,0,0],DEBUG=debug_mod)
 
             timer.tic()
-            img_tf_,cubic_theta_,merge_op_ = sess.run([self.cubic_theta.img_tf,self.cubic_theta.res,merge_op], feed_dict=feed_dict, options=run_options,run_metadata=run_metadata)
+            img_tf_,cubic_theta_,merge_op_ = sess.run([self.cubic_theta.img_tf, self.cubic_theta.res, merge_op], feed_dict=feed_dict, options=run_options, run_metadata=run_metadata)
             timer.toc()
             input_series.append(img_tf_)
             res.append(cubic_theta_[0]*180/3.1415926)

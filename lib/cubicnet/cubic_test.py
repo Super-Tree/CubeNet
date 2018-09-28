@@ -3,8 +3,9 @@ import tensorflow as tf
 from network.config import cfg
 from tensorflow.python.client import timeline
 from tools.timer import Timer
-from tools.data_visualize import pcd_vispy,vispy_init,test_show_rpn_tf,BoxAry_Theta
-
+from tools.data_visualize import pcd_vispy,vispy_init,test_show_rpn_tf,BoxAry_Theta,pcd_vispy_standard
+import numpy
+import numpy as np
 VISION_DEBUG = True
 USE_ROS = True
 
@@ -15,6 +16,25 @@ class CubicNet_Test(object):
         self.dataset = data_set
         self.args = args
         self.epoch = self.dataset.input_num
+
+    def format_convertor(self,type,inputs):
+        if type=='output':
+            net_outs=inputs
+
+            cube_score_det = net_outs[:,0:2]
+            cube_cls_det=(cube_score_det[:,0]<cube_score_det[:,1]).astype(np.float32).reshape(-1,1)
+
+            cube_size_det = net_outs[:,2:5]+ np.array([3.88311640418,1.62856739989,1.52563191462])
+
+            cube_ctr_det = net_outs[:,5:8]
+
+            cube_yaw_component_det= net_outs[:,8:10]
+
+            yaw = np.arctan2(cube_yaw_component_det[:,1], cube_yaw_component_det[:,0])
+
+            cube_yaw_det = yaw.reshape(-1,1)
+
+            return np.hstack((cube_cls_det,cube_ctr_det,cube_size_det,cube_yaw_det))
 
     def testing(self, sess, test_writer):
         # =======================================
@@ -50,7 +70,8 @@ class CubicNet_Test(object):
             # feature = tf.reshape(tf.transpose(tf.reduce_sum(self.net.watcher[-2],axis=-1),[2,0,1]),[-1,30,30,1])
             # tf.summary.image('shape_extractor_N2', feature,max_outputs=3)
             merged = tf.summary.merge_all()
-
+            glb_var = tf.global_variables()
+            a=0
         with tf.name_scope('load_weights'):
             print 'Loading pre-trained model weights from {:s}'.format(self.args.weights)
             self.net.load_weigths(self.args.weights, sess, self.saver)
@@ -58,7 +79,12 @@ class CubicNet_Test(object):
 
         vispy_init()  # TODO: Essential step(before sess.run) for using vispy beacuse of the bug of opengl or tensorflow
         timer = Timer()
-        cubic_cls_score = tf.reshape(self.net.get_output('cubic_cnn'), [-1, 2])
+
+        cubic_cls_score = self.net.get_output('cubic_cnn')[:,0:2]
+        net_outs = self.net.get_output('cubic_cnn')
+        # cube_size_scale_det=self.net.get_output('cubic_cnn')[:,2:5]
+        # cube_ctr_det = self.net.get_output('cubic_cnn')[:,5:8]
+        # cube_yaw_component_det= self.net.get_output('cubic_cnn')[:,8:10]
 
         for idx in range(0,self.epoch,1):
             # index_ = input('Type a new index: ')
@@ -72,9 +98,9 @@ class CubicNet_Test(object):
             run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
             run_metadata = tf.RunMetadata()
             timer.tic()
-            cubic_cls_score_,rpn_rois_3d_,summary = sess.run([cubic_cls_score,rpn_rois_3d,merged]
-                         ,feed_dict=feed_dict, options=run_options, run_metadata=run_metadata)
+            net_outs_,cubic_cls_score_,rpn_rois_3d_,summary = sess.run([net_outs,cubic_cls_score, rpn_rois_3d, merged], feed_dict=feed_dict, options=run_options, run_metadata=run_metadata)
             timer.toc()
+            net_outs_box=self.format_convertor(type="output",inputs=net_outs_)
 
             if idx % 3 ==0 and cfg.TEST.DEBUG_TIMELINE:
                 # chrome://tracing
@@ -102,10 +128,20 @@ class CubicNet_Test(object):
                     box_pub.publish(label_boxes)
                 else:
                     boxes = BoxAry_Theta(pre_box3d=rpn_rois_3d_,pre_cube_cls=cubic_cls_value)  # RNet_rpn_yaw_pred_toshow_  rpn_rois_3d_[:,-1]
-                    pcd_vispy(scan, img, boxes,index=idx,
-                              save_img=False,#cfg.TEST.SAVE_IMAGE,
-                              visible=True,
-                              name='CubicNet testing')
+                    # pcd_vispy(scan, img, boxes,index=idx,
+                    #           save_img=True,#cfg.TEST.SAVE_IMAGE,
+                    #           visible=False,
+                    #           name='CubicNet testing')
+                    a=cubic_cls_value.reshape(-1,1)
+                    b=rpn_rois_3d_[:,0:6]
+                    c=numpy.zeros(shape=(cubic_cls_value.shape[0],1))
+                    boxes=numpy.hstack((a,b,c))
+                    settings={'fov': 0.0, 'elevation': 57.0, 'center': (6.5, -0.5, 9.0), 'azimuth': -126.0, 'scale_factor': 63.0, 'roll': 0.0}
+                    pcd_vispy_standard(scan,img,index=idx,
+                                                save_img=True,#cfg.TEST.SAVE_IMAGE,
+                                                visible=False,
+                                                boxes=boxes,
+                                                lidar_view_set=settings)
             if idx % 1 == 0 and cfg.TEST.TENSORBOARD:
                 test_writer.add_summary(summary, idx)
                 pass

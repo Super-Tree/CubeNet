@@ -175,8 +175,8 @@ class CubicNet_Train(object):
                 run_metadata = tf.RunMetadata()
                 timer.tic()
                 debug_pred_,delta_,RNet_rpn_yaw_gt_delta_,rpn_rois_3d_,loss_,RNet_rpn_yaw_pred_toshow_,debug_gt_,merged_,_ = \
-                    sess.run([debug_pred,tower_l1_loss_keep_positive,RNet_rpn_yaw_gt_delta,rpn_rois_3d,loss,RNet_rpn_yaw_pred_toshow,debug_gt,merged,train_op,]
-                             ,feed_dict=feed_dict,options=run_options, run_metadata=run_metadata)
+                    sess.run([debug_pred, tower_l1_loss_keep_positive, RNet_rpn_yaw_gt_delta, rpn_rois_3d, loss, RNet_rpn_yaw_pred_toshow, debug_gt, merged, train_op, ]
+                             , feed_dict=feed_dict, options=run_options, run_metadata=run_metadata)
                 # debug_pred_,delta_,RNet_rpn_yaw_gt_delta_,rpn_rois_3d_,RNet_rpn_yaw_pred_toshow_,debug_gt_,merged_, = \
                 #     sess.run([debug_pred,tower_l1_loss_keep_positive,RNet_rpn_yaw_gt_delta,rpn_rois_3d,RNet_rpn_yaw_pred_toshow,debug_gt,merged,]
                 #              ,feed_dict=feed_dict,options=run_options, run_metadata=run_metadata)
@@ -244,7 +244,7 @@ class CubicNet_Train(object):
                             # train_writer.add_summary(valid_result_, data_idx/20+epo_cnt*1000)
 
                 valid_summary = tf.summary.merge([epoch_cube_theta_sum_op])
-                valid_res = sess.run(valid_summary, feed_dict={epoch_cube_theta:float(valid_loss_total)/self.val_epoch})
+                valid_res = sess.run(valid_summary, feed_dict={epoch_cube_theta: float(valid_loss_total) / self.val_epoch})
                 train_writer.add_summary(valid_res, epo_cnt + 1)
                 print 'Validation of epoch_{}:theta_loss_total = {:.3f}\n'\
                       .format(epo_cnt + 1,float(valid_loss_total)/self.val_epoch)

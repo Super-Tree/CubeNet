@@ -470,12 +470,14 @@ class Network(object):
         from tensorflow.python.ops import init_ops
 
         def converter_grad(op, grad):
-            return grad * 25
+            return grad * 100#TODO:hxd:Reminder
 
         def converter_op(kernel_w):
-            extractor_int_ = np.greater(kernel_w, 0.0).astype(np.float32)
+            kernel_w_int = np.zeros_like(kernel_w, dtype=np.float32)
+            extractor_int_pos = np.greater(kernel_w, 0.33).astype(np.float32)
+            extractor_int_neg = np.less(kernel_w, -0.33).astype(np.float32) * -1.0
 
-            return extractor_int_
+            return kernel_w_int + extractor_int_pos + extractor_int_neg
 
         def py_func(func, inp, Tout, stateful=True, name_=None, grad=None):
             # Need to generate a unique name to avoid duplicates:
@@ -496,7 +498,7 @@ class Network(object):
                 return z[0]
 
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE) as scope:
-            extractor_weighs_float = tf.get_variable('extractor_float', shape=[3, 3, 3, 1, channel[0]],
+            extractor_weighs_float = tf.get_variable('extractor_float', shape=[5, 5, 5, 1, channel[0]],
                                                      initializer=init_ops.variance_scaling_initializer)
             extractor_int = tf_extractor(extractor_weighs_float, name__='extractor_int')
             res = tf.nn.conv3d(inputs, extractor_int, strides=[1, 1, 1, 1, 1], padding='SAME',
