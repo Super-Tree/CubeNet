@@ -1,5 +1,5 @@
-imp of sgm
-dadad
+#include "studio.h"
 
-impirt os
-import sys
+int main(){
+    return 0
+}
